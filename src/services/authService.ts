@@ -4,13 +4,14 @@ import type { User, UserRole } from "@/types";
 // AUTH SERVICE (Connected to Backend)
 // ==========================================
 
-interface LoginCredentials {
+// ...
+export interface LoginCredentials {
   email: string;
   password: string;
   role: UserRole;
 }
 
-interface RegisterData {
+export interface RegisterData {
   name: string;
   email: string;
   password: string;
@@ -19,13 +20,23 @@ interface RegisterData {
   city?: string;
 }
 
-interface AuthResponse {
+export interface AuthResponse {
   success: boolean;
   user?: User;
   error?: string;
 }
 
+export interface UserActivity {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  lastActive?: string;
+  loginHistory?: Array<{ ip: string; device: string; timestamp: string }>;
+}
+
 export const authService = {
+  // ...
   // Login
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
@@ -194,6 +205,17 @@ export const authService = {
     // Placeholder - implement backend endpoint later
     await new Promise((resolve) => setTimeout(resolve, 800));
     return { success: true, message: "Password reset link sent to your email" };
+  },
+
+  // Get User Activity
+  async getUserActivity(): Promise<UserActivity[]> {
+    try {
+      const response = await fetch('/api/users/activity');
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
   },
 };
 

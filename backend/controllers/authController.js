@@ -73,6 +73,15 @@ const loginUser = asyncHandler(async (req, res) => {
     // Basic check without hash for now
     if (user.password === password) {
         console.log('Login successful for:', email);
+
+        // Update activity
+        user.lastActive = new Date();
+        user.loginHistory.push({
+            ip: req.ip,
+            device: req.headers['user-agent']
+        });
+        await user.save();
+
         res.json({
             _id: user.id,
             name: user.name,
@@ -80,7 +89,7 @@ const loginUser = asyncHandler(async (req, res) => {
             role: user.role,
             phone: user.phone,
             city: user.city,
-            profilePhoto: user.profilePhoto,
+            profilePhoto: user.profilePhoto, // Make sure to return this
             token: null, // Placeholder for JWT
         });
     } else {
@@ -88,6 +97,14 @@ const loginUser = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('Invalid credentials');
     }
+});
+
+// @desc    Get user activity (Admin)
+// @route   GET /api/users/activity
+// @access  Private (Admin)
+const getUserActivity = asyncHandler(async (req, res) => {
+    const users = await User.find({}, 'name email role lastActive loginHistory').sort('-lastActive');
+    res.json(users);
 });
 
 // @desc    Update user profile
@@ -168,4 +185,5 @@ module.exports = {
     getMe,
     updateUserProfile,
     uploadProfileImage,
+    getUserActivity,
 };

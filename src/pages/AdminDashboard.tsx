@@ -10,10 +10,10 @@ import {
   AddBusModal,
   EditBusModal,
 } from "@/components/admin";
-import type { Bus } from "@/types";
+import type { Bus, User } from "@/types";
 import { socketService } from "@/services/socketService";
 import { busService } from "@/services/busService";
-import { authService } from "@/services/authService";
+import { authService, UserActivity } from "@/services/authService";
 import { toast } from "sonner";
 
 // Sample data - will be replaced with API calls
@@ -24,7 +24,7 @@ const AdminDashboard = () => {
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get('view') || 'dashboard';
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [showAddBus, setShowAddBus] = useState(false);
   const [editingBus, setEditingBus] = useState<Bus | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,7 +66,7 @@ const AdminDashboard = () => {
       }
       socketService.disconnect();
     };
-  }, []);
+  }, [navigate]);
 
   const handleStartTracking = (busId: string) => {
     if (trackedBusId) {
@@ -115,7 +115,7 @@ const AdminDashboard = () => {
     toast.success("Stopped tracking");
   };
 
-  const handleUpdateBus = async (id: string, data: any) => {
+  const handleUpdateBus = async (id: string, data: Partial<Bus>) => {
     const success = await busService.updateBus(id, data);
     if (success) {
       toast.success("Bus updated successfully");
@@ -138,7 +138,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleCreateBus = async (data: any) => {
+  const handleCreateBus = async (data: Omit<Bus, 'id' | 'location'> & Partial<Bus>) => {
     const success = await busService.createBus(data);
     if (success) {
       toast.success("Bus created successfully");
@@ -283,6 +283,10 @@ const AdminDashboard = () => {
               </Button>
             </div>
           )}
+
+          {activeTab === 'activity' && (
+            <UserActivityTable />
+          )}
         </div>
       </main>
 
@@ -293,6 +297,72 @@ const AdminDashboard = () => {
         onClose={() => setEditingBus(null)}
         onSubmit={handleUpdateBus}
       />
+    </div>
+  );
+};
+
+const UserActivityTable = () => {
+  const [users, setUsers] = useState<UserActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchActivity = async () => {
+      const data = await authService.getUserActivity();
+      setUsers(data);
+      setLoading(false);
+    };
+    fetchActivity();
+  }, []);
+
+  if (loading) return <div>Loading activity...</div>;
+
+  return (
+    <div className="glass-card rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-border">
+        <h2 className="text-lg font-semibold">User Activity Log</h2>
+        <p className="text-sm text-muted-foreground">Monitor recent logins and active users</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-secondary/50">
+            <tr>
+              <th className="p-4 text-left font-medium text-sm text-muted-foreground uppercase">User</th>
+              <th className="p-4 text-left font-medium text-sm text-muted-foreground uppercase">Role</th>
+              <th className="p-4 text-left font-medium text-sm text-muted-foreground uppercase">Last Active</th>
+              <th className="p-4 text-left font-medium text-sm text-muted-foreground uppercase">Device IP</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {users.map((user, idx) => (
+              <tr key={idx} className="hover:bg-muted/50 transition-colors">
+                <td className="p-4 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                </td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${user.role === 'admin' ? 'bg-destructive/10 text-destructive' :
+                    user.role === 'driver' ? 'bg-accent/10 text-accent' :
+                      'bg-secondary text-muted-foreground'
+                    }`}>
+                    {user.role}
+                  </span>
+                </td>
+                <td className="p-4 text-sm">
+                  {user.lastActive ? new Date(user.lastActive).toLocaleString() : 'Never'}
+                </td>
+                <td className="p-4 text-sm text-muted-foreground font-mono">
+                  {user.loginHistory && user.loginHistory.length > 0 ? user.loginHistory[user.loginHistory.length - 1].ip : 'N/A'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

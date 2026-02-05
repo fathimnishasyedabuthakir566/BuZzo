@@ -3,6 +3,14 @@ import { toast } from "sonner";
 
 const URL = 'http://localhost:5001'; // Backend URL
 
+interface LocationData {
+    routeId: string;
+    lat: number;
+    lng: number;
+    busId?: string;
+    [key: string]: unknown;
+}
+
 class SocketService {
     public socket: Socket | null = null;
     private offlineQueue: { routeId: string; lat: number; lng: number; timestamp: number }[] = [];
@@ -60,7 +68,7 @@ class SocketService {
         }
     }
 
-    subscribeToLocation(callback: (data: any) => void) {
+    subscribeToLocation(callback: (data: LocationData) => void) {
         if (!this.socket) return;
         this.socket.on('receive-location', callback);
     }
@@ -70,12 +78,12 @@ class SocketService {
         this.socket.off('receive-location');
     }
 
-    on(event: string, callback: (...args: any[]) => void) {
+    on(event: string, callback: (...args: unknown[]) => void) {
         if (!this.socket) this.connect();
         this.socket?.on(event, callback);
     }
 
-    off(event: string, callback?: (...args: any[]) => void) {
+    off(event: string, callback?: (...args: unknown[]) => void) {
         if (callback) {
             this.socket?.off(event, callback);
         } else {
@@ -83,7 +91,7 @@ class SocketService {
         }
     }
 
-    emit(event: string, data: any) {
+    emit(event: string, data: unknown) {
         if (!this.socket) this.connect();
         this.socket?.emit(event, data);
     }

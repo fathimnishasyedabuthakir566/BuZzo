@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,31 +15,36 @@ import UserProfile from "./pages/UserProfile";
 import DriverProfile from "./pages/DriverProfile";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import { ThemeProvider } from "./components/theme-provider";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/buses" element={<BusList />} />
-          <Route path="/bus/:id" element={<BusDetails />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/dashboard" element={<PassengerDashboard />} />
-          <Route path="/profile" element={<UserProfile />} />
-          <Route path="/driver" element={<DriverDashboard />} />
-          <Route path="/driver-profile" element={<DriverProfile />} />
-          <Route path="/about" element={<About />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/buses" element={<BusList />} />
+              <Route path="/bus/:id" element={<BusDetails />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/dashboard" element={<PassengerDashboard />} />
+              <Route path="/profile" element={<UserProfile />} />
+              <Route path="/driver" element={<DriverDashboard />} />
+              <Route path="/driver-profile" element={<DriverProfile />} />
+              <Route path="/about" element={<About />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

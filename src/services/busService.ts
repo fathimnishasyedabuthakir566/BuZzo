@@ -28,10 +28,10 @@ export const busService = {
       // Backend now returns { buses, total, page, pages }
       const busesList = Array.isArray(data) ? data : data.buses;
 
-      const mappedData = busesList.map((bus: any) => ({
+      const mappedData = busesList.map((bus: Record<string, unknown>) => ({
         ...bus,
-        id: bus._id
-      }));
+        id: bus._id as string
+      })) as Bus[];
 
       // Update cache ONLY for first page
       if (page === 1) {
@@ -97,18 +97,24 @@ export const busService = {
 
   // Get available routes
   async getRoutes(): Promise<string[]> {
-    const buses = await this.getAllBuses();
-    const routes = new Set(buses.map(b => `${b.routeFrom} - ${b.routeTo}`));
-    return Array.from(routes) as string[];
+    try {
+      const response = await fetch(`${API_URL}/routes`);
+      if (!response.ok) throw new Error('Failed to fetch routes');
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+      return [];
+    }
   },
 
   // Update bus location
   async updateBusLocation(busId: string, location: string, eta: string): Promise<boolean> {
+    console.log(busId, location, eta); // Placeholder usage
     return true;
   },
 
   // Create Bus
-  async createBus(busData: any): Promise<boolean> {
+  async createBus(busData: Omit<Bus, 'id' | 'location'> & Partial<Bus>): Promise<boolean> {
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -124,7 +130,7 @@ export const busService = {
   },
 
   // Update Bus
-  async updateBus(id: string, busData: any): Promise<boolean> {
+  async updateBus(id: string, busData: Partial<Bus>): Promise<boolean> {
     try {
       const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',

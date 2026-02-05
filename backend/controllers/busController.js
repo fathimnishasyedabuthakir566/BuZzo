@@ -114,10 +114,17 @@ const deleteBus = asyncHandler(async (req, res) => {
     }
 });
 
+const getRoutes = asyncHandler(async (req, res) => {
+    const buses = await Bus.find({}, 'routeFrom routeTo');
+    const routes = new Set(buses.map(bus => `${bus.routeFrom} - ${bus.routeTo}`));
+    res.json(Array.from(routes));
+});
+
 module.exports = {
     getBuses,
     getBusById,
     createBus,
     updateBus,
-    deleteBus
+    deleteBus,
+    getRoutes
 };

@@ -8,6 +8,7 @@ import { BusCard } from "@/components/bus";
 import { SkeletonCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import AllBusesMap from "@/components/map/AllBusesMap";
 import { cn } from "@/lib/utils";
 
 const PassengerDashboard = () => {
@@ -19,6 +20,8 @@ const PassengerDashboard = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedPlatform, setSelectedPlatform] = useState<number | 'all'>('all');
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [routes, setRoutes] = useState<string[]>([]);
+    const [selectedRoute, setSelectedRoute] = useState<string>("all");
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -33,9 +36,10 @@ const PassengerDashboard = () => {
         if (!append) setIsLoading(true);
 
         try {
-            const [currentUser, newBuses] = await Promise.all([
+            const [currentUser, newBuses, availableRoutes] = await Promise.all([
                 authService.getCurrentUser(),
-                busService.getAllBuses(!append, pageNum, 50) // increased limit for better platform coverage
+                busService.getAllBuses(!append, pageNum, 50),
+                busService.getRoutes()
             ]);
 
             if (!currentUser) {
@@ -44,6 +48,7 @@ const PassengerDashboard = () => {
             }
 
             setUser(currentUser);
+            setRoutes(availableRoutes);
 
             if (append) {
                 setBuses(prev => [...prev, ...newBuses]);
@@ -61,6 +66,7 @@ const PassengerDashboard = () => {
 
     useEffect(() => {
         fetchDashboardData(1, false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [navigate]);
 
     const handleLoadMore = () => {
@@ -87,9 +93,10 @@ const PassengerDashboard = () => {
             bus.routeTo.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesPlatform = selectedPlatform === 'all' || bus.platformNumber === selectedPlatform;
+        const matchesRoute = selectedRoute === 'all' || `${bus.routeFrom} - ${bus.routeTo}` === selectedRoute;
         const isUpcoming = isAfter(bus.scheduledTime, currentFormattedTime);
 
-        return matchesSearch && matchesPlatform && isUpcoming;
+        return matchesSearch && matchesPlatform && matchesRoute && isUpcoming;
     });
 
     if (!user) return null;
@@ -138,16 +145,33 @@ const PassengerDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Quick Search */}
-                    <div className="mt-10 relative max-w-2xl">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-6 h-6" />
-                        <input
-                            type="text"
-                            placeholder="Find your route, bus number or destination..."
-                            className="input-field pl-14 h-16 text-xl rounded-2xl bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                    {/* Quick Search and Route Filter */}
+                    <div className="mt-10 flex flex-col md:flex-row gap-4 max-w-4xl">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-6 h-6" />
+                            <input
+                                type="text"
+                                placeholder="Find your bus number or destination..."
+                                className="input-field pl-14 h-16 text-xl rounded-2xl bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner w-full"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div className="relative w-full md:w-64">
+                            <select
+                                className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
+                                value={selectedRoute}
+                                onChange={(e) => setSelectedRoute(e.target.value)}
+                            >
+                                <option value="all">All Routes</option>
+                                {routes.map(route => (
+                                    <option key={route} value={route}>{route}</option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <Bus className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -180,73 +204,90 @@ const PassengerDashboard = () => {
                     </div>
                 </div>
 
-                {/* Bus Grid Header */}
-                <div className="flex items-center justify-between mb-8 border-b border-border/50 pb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <Bus className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-black tracking-tight">Available Departures</h2>
-                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">
-                                {selectedPlatform === 'all' ? 'Across all platforms' : `Specifically from Platform ${selectedPlatform}`}
-                            </p>
+                {/* Content Layout: Map + Grid */}
+                <div className="flex flex-col xl:flex-row gap-8">
+
+                    {/* Map Section (Mobile: Top, Desktop: Side) */}
+                    <div className="w-full xl:w-1/3 xl:sticky xl:top-24 h-fit space-y-6">
+                        <div className="glass-card p-2 rounded-2xl shadow-lg bg-card">
+                            <h3 className="text-lg font-bold px-4 pt-3 flex items-center gap-2">
+                                <Bus className="w-5 h-5 text-accent" /> Live Map View
+                            </h3>
+                            <AllBusesMap initialBuses={filteredBuses} />
                         </div>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-primary gap-2 font-bold px-4"
-                        onClick={async () => {
-                            setPage(1);
-                            fetchDashboardData(1, false);
-                        }}
-                    >
-                        <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                        UPDATE LIST
-                    </Button>
-                </div>
 
-                {isLoading && page === 1 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {[...Array(6)].map((_, i) => (
-                            <SkeletonCard key={i} />
-                        ))}
-                    </div>
-                ) : filteredBuses.length > 0 ? (
-                    <div className="space-y-10">
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredBuses.map((bus) => (
-                                <BusCard key={bus.id} {...bus} />
-                            ))}
+                    {/* Bus List Section */}
+                    <div className="w-full xl:w-2/3">
+                        {/* Bus Grid Header */}
+                        <div className="flex items-center justify-between mb-8 border-b border-border/50 pb-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <Bus className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black tracking-tight">Available Departures</h2>
+                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">
+                                        {selectedPlatform === 'all' ? 'Across all platforms' : `Specifically from Platform ${selectedPlatform}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground hover:text-primary gap-2 font-bold px-4"
+                                onClick={async () => {
+                                    setPage(1);
+                                    fetchDashboardData(1, false);
+                                }}
+                            >
+                                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                                UPDATE LIST
+                            </Button>
                         </div>
 
-                        {hasMore && (
-                            <div className="flex justify-center pb-12">
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    className="rounded-full px-12 h-14 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all gap-3 shadow-lg hover:shadow-primary/10"
-                                    onClick={handleLoadMore}
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? (
-                                        <RefreshCw className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <Plus className="w-5 h-5" />
-                                    )}
-                                    Load More Buses
-                                </Button>
+                        {isLoading && page === 1 ? (
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {[...Array(6)].map((_, i) => (
+                                    <SkeletonCard key={i} />
+                                ))}
+                            </div>
+                        ) : filteredBuses.length > 0 ? (
+                            <div className="space-y-10">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {filteredBuses.map((bus) => (
+                                        <BusCard key={bus.id} {...bus} />
+                                    ))}
+                                </div>
+
+                                {hasMore && (
+                                    <div className="flex justify-center pb-12">
+                                        <Button
+                                            variant="outline"
+                                            size="lg"
+                                            className="rounded-full px-12 h-14 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all gap-3 shadow-lg hover:shadow-primary/10"
+                                            onClick={handleLoadMore}
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? (
+                                                <RefreshCw className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <Plus className="w-5 h-5" />
+                                            )}
+                                            Load More Buses
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 glass-card rounded-2xl border-dashed border-2">
+                                <Bus className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
+                                <h3 className="text-xl font-bold text-muted-foreground">No buses found</h3>
+                                <p className="text-muted-foreground">Try a different search query</p>
                             </div>
                         )}
                     </div>
-                ) : (
-                    <div className="text-center py-20 glass-card rounded-2xl border-dashed border-2">
-                        <Bus className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-                        <h3 className="text-xl font-bold text-muted-foreground">No buses found</h3>
-                        <p className="text-muted-foreground">Try a different search query</p>
-                    </div>
-                )}
+                </div>
             </div>
         </Layout>
     );

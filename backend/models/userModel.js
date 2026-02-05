@@ -33,6 +33,14 @@ const userSchema = mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Bus',
         },
+        lastActive: {
+            type: Date,
+        },
+        loginHistory: [{
+            timestamp: { type: Date, default: Date.now },
+            ip: String,
+            device: String
+        }],
     },
     {
         timestamps: true,

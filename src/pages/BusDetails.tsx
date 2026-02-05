@@ -56,8 +56,8 @@ const BusDetails = () => {
               lng: data.lng,
               lastUpdated: new Date().toISOString()
             },
-            currentStop: data.currentStop,
-            nextStop: data.nextStop
+            currentStop: data.currentStop as string,
+            nextStop: data.nextStop as string
           };
         });
         setLastSeen("just now");
@@ -67,6 +67,7 @@ const BusDetails = () => {
       socketService.unsubscribeFromLocation();
       socketService.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const matchesStatus = useMemo(() => {

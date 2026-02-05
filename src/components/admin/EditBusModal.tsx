@@ -6,7 +6,7 @@ interface EditBusModalProps {
     isOpen: boolean;
     bus: Bus | null;
     onClose: () => void;
-    onSubmit: (id: string, data: any) => void;
+    onSubmit: (id: string, data: Partial<Bus>) => Promise<void>;
 }
 
 const EditBusModal = ({ isOpen, bus, onClose, onSubmit }: EditBusModalProps) => {
@@ -38,7 +38,7 @@ const EditBusModal = ({ isOpen, bus, onClose, onSubmit }: EditBusModalProps) => 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit(bus.id, formData);
+        onSubmit(bus.id, formData as unknown as Partial<Bus>);
         onClose();
     };
 

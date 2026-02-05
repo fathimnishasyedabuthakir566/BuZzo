@@ -53,7 +53,9 @@ const DriverDashboard = () => {
             // If user has an assigned bus ID, fetch its details
             if (currentUser.assignedBus) {
                 const busDetails = await busService.getBusById(currentUser.assignedBus);
-                setAssignedBus(busDetails as any);
+                if (busDetails) {
+                    setAssignedBus(busDetails as BusType);
+                }
             }
 
             setIsLoading(false);
@@ -85,7 +87,9 @@ const DriverDashboard = () => {
                 setUser({ ...user, assignedBus: busId });
 
                 const busDetails = await busService.getBusById(busId);
-                setAssignedBus(busDetails as any);
+                if (busDetails) {
+                    setAssignedBus(busDetails as BusType);
+                }
                 toast.success("Bus assigned successfully");
             }
         } catch (error) {

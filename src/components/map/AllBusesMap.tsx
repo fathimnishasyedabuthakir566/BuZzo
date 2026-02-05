@@ -3,14 +3,14 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { socketService } from '@/services/socketService';
 import L from 'leaflet';
-import type { Bus } from '@/types';
+import type { Bus, BusStatus } from '@/types';
 import { Link } from 'react-router-dom';
 
 // Fix for default marker icon
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -36,7 +36,7 @@ const AllBusesMap = ({ initialBuses }: AllBusesMapProps) => {
         socketService.subscribeToLocation((data) => {
             setBuses(prev => prev.map(bus =>
                 bus.id === data.busId || bus.id === data.routeId
-                    ? { ...bus, location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() }, status: 'on-time' as any }
+                    ? { ...bus, location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() }, status: 'on-time' as BusStatus }
                     : bus
             ));
         });

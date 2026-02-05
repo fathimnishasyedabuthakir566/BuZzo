@@ -1,5 +1,5 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { Bus, LayoutDashboard, MapPin, LogOut } from "lucide-react";
+import { Bus, LayoutDashboard, MapPin, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
 
@@ -25,7 +25,8 @@ const AdminSidebar = ({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/admin?view=dashboard" },
     { id: "buses", label: "My Buses", icon: Bus, href: "/admin?view=buses" },
-    { id: "location", label: "Update Location", icon: MapPin, href: "/admin?view=location" },
+    { id: "location", label: "Live Locations", icon: MapPin, href: "/admin?view=location" },
+    { id: "activity", label: "User Activity", icon: UserIcon, href: "/admin?view=activity" }, // Import UserIcon
   ];
 
   return (

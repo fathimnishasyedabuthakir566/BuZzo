@@ -33,8 +33,8 @@ const busSchema = mongoose.Schema(
         ac: { type: Boolean, default: false },
         status: {
             type: String,
-            enum: ['on-time', 'delayed', 'arriving', 'departed', 'offline'],
-            default: 'offline',
+            enum: ['Upcoming', 'Delayed', 'Arriving soon', 'Arrived', 'Not running'],
+            default: 'Not running',
         },
         location: {
             lat: { type: Number },
