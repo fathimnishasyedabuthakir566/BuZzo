@@ -22,6 +22,7 @@ const PassengerDashboard = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [routes, setRoutes] = useState<string[]>([]);
     const [selectedRoute, setSelectedRoute] = useState<string>("all");
+    const [selectedStatus, setSelectedStatus] = useState<string>("all");
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -36,19 +37,27 @@ const PassengerDashboard = () => {
         if (!append) setIsLoading(true);
 
         try {
-            const [currentUser, newBuses, availableRoutes] = await Promise.all([
-                authService.getCurrentUser(),
+            // Get user first so shell renders immediately
+            if (!user) {
+                const currentUser = await authService.getCurrentUser();
+                if (!currentUser) {
+                    navigate("/auth");
+                    return;
+                }
+                setUser(currentUser);
+            }
+
+            // Fetch data in background/parallel
+            const [newBuses, availableRoutes] = await Promise.all([
                 busService.getAllBuses(!append, pageNum, 50),
                 busService.getRoutes()
             ]);
 
-            if (!currentUser) {
-                navigate("/auth");
-                return;
+            if (Array.isArray(availableRoutes)) {
+                setRoutes(availableRoutes);
+            } else {
+                setRoutes([]);
             }
-
-            setUser(currentUser);
-            setRoutes(availableRoutes);
 
             if (append) {
                 setBuses(prev => [...prev, ...newBuses]);
@@ -94,12 +103,26 @@ const PassengerDashboard = () => {
 
         const matchesPlatform = selectedPlatform === 'all' || bus.platformNumber === selectedPlatform;
         const matchesRoute = selectedRoute === 'all' || `${bus.routeFrom} - ${bus.routeTo}` === selectedRoute;
-        const isUpcoming = isAfter(bus.scheduledTime, currentFormattedTime);
+        const matchesStatus = selectedStatus === 'all' || bus.status === selectedStatus;
 
-        return matchesSearch && matchesPlatform && matchesRoute && isUpcoming;
+        const scheduledTime = Array.isArray(bus.scheduledTime) ? bus.scheduledTime[0] : bus.scheduledTime;
+        const isUpcoming = isAfter(scheduledTime, currentFormattedTime);
+
+        return matchesSearch && matchesPlatform && matchesRoute && matchesStatus && isUpcoming;
     });
 
-    if (!user) return null;
+    if (!user) return (
+        <Layout>
+            <div className="container mx-auto px-4 py-8">
+                <div className="glass-card rounded-3xl p-8 mb-10 h-64 skeleton" />
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[...Array(6)].map((_, i) => (
+                        <SkeletonCard key={i} />
+                    ))}
+                </div>
+            </div>
+        </Layout>
+    );
 
     return (
         <Layout>
@@ -145,31 +168,49 @@ const PassengerDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Quick Search and Route Filter */}
-                    <div className="mt-10 flex flex-col md:flex-row gap-4 max-w-4xl">
+                    {/* Quick Search and Multi-Filters */}
+                    <div className="mt-10 flex flex-col lg:flex-row gap-4 max-w-5xl">
                         <div className="relative flex-1">
                             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-6 h-6" />
                             <input
                                 type="text"
                                 placeholder="Find your bus number or destination..."
-                                className="input-field pl-14 h-16 text-xl rounded-2xl bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner w-full"
+                                className="input-field pl-14 h-16 text-xl rounded-2xl bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner w-full transition-all"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <div className="relative w-full md:w-64">
-                            <select
-                                className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
-                                value={selectedRoute}
-                                onChange={(e) => setSelectedRoute(e.target.value)}
-                            >
-                                <option value="all">All Routes</option>
-                                {routes.map(route => (
-                                    <option key={route} value={route}>{route}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <Bus className="w-5 h-5 text-muted-foreground" />
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="relative w-full md:w-64">
+                                <select
+                                    className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-semibold"
+                                    value={selectedRoute}
+                                    onChange={(e) => setSelectedRoute(e.target.value)}
+                                >
+                                    <option value="all">All Routes</option>
+                                    {Array.isArray(routes) && routes.map(route => (
+                                        <option key={route} value={route}>{route}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <Bus className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                            </div>
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-semibold capitalize"
+                                    value={selectedStatus}
+                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                >
+                                    <option value="all">Any Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="on-route">On Route</option>
+                                    <option value="delayed">Delayed</option>
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <div className={`w-3 h-3 rounded-full ${selectedStatus === 'active' ? 'bg-green-500' : selectedStatus === 'on-route' ? 'bg-blue-500' : selectedStatus === 'delayed' ? 'bg-red-500' : 'bg-gray-500'}`} />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -282,8 +323,8 @@ const PassengerDashboard = () => {
                         ) : (
                             <div className="text-center py-20 glass-card rounded-2xl border-dashed border-2">
                                 <Bus className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-                                <h3 className="text-xl font-bold text-muted-foreground">No buses found</h3>
-                                <p className="text-muted-foreground">Try a different search query</p>
+                                <h3 className="text-xl font-bold text-muted-foreground">No buses currently departing</h3>
+                                <p className="text-muted-foreground">All scheduled buses for this route may have already departed or no results match your filters.</p>
                             </div>
                         )}
                     </div>

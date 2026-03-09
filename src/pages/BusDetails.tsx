@@ -18,6 +18,8 @@ import { socketService } from "@/services/socketService";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
+import { useNotifications } from "@/hooks/useNotifications";
+import { calculateDistance, calculateETA, formatETA, findNearestStop, calculateRouteDistance, calculateWalkingTime } from "@/utils/routeUtils";
 
 const BusDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,8 +27,16 @@ const BusDetails = () => {
   const [bus, setBus] = useState<BusDetailsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastSeen, setLastSeen] = useState<string>("");
+  const [notifyStop, setNotifyStop] = useState<{ name: string, lat: number, lng: number } | null>(null);
 
+  const [nearestStop, setNearestStop] = useState<{ name: string, lat: number, lng: number, distance: number } | null>(null);
   const { coordinates: userLocation, requestLocation, permissionStatus } = useGeoLocation();
+
+  useNotifications({
+    routeId: id,
+    selectedStop: notifyStop,
+    radiusKm: 1.0
+  });
 
   const fetchBus = async () => {
     if (!id) return;
@@ -49,15 +59,31 @@ const BusDetails = () => {
       socketService.subscribeToLocation((data) => {
         setBus(prevBus => {
           if (!prevBus || prevBus.id !== data.routeId) return prevBus;
+
+          // Enrich timings with ETA
+          const timingsArray = Array.isArray(prevBus.timings) ? prevBus.timings : [];
+          const updatedTimings = timingsArray.map(timing => {
+            if (timing.status === "upcoming" && prevBus.intermediateStops) {
+              const stop = prevBus.intermediateStops.find(s => s.name === timing.location);
+              if (stop && data.lat && data.lng) {
+                const dist = calculateDistance(data.lat, data.lng, stop.lat, stop.lng);
+                const etaMins = calculateETA(dist);
+                return { ...timing, eta: formatETA(etaMins) };
+              }
+            }
+            return timing;
+          });
+
           return {
             ...prevBus,
             location: {
               lat: data.lat,
               lng: data.lng,
-              lastUpdated: new Date().toISOString()
+              lastUpdated: data.lastUpdated || new Date().toISOString()
             },
             currentStop: data.currentStop as string,
-            nextStop: data.nextStop as string
+            nextStop: data.nextStop as string,
+            timings: updatedTimings
           };
         });
         setLastSeen("just now");
@@ -95,6 +121,16 @@ const BusDetails = () => {
 
     return { isOffline, smartStatus, statusColor };
   }, [bus, lastSeen]);
+
+  // Nearest Stop Logic
+  useEffect(() => {
+    if (userLocation && bus?.intermediateStops) {
+      const nearest = findNearestStop(userLocation.lat, userLocation.lng, bus.intermediateStops);
+      if (nearest) {
+        setNearestStop(nearest);
+      }
+    }
+  }, [userLocation, bus?.intermediateStops]);
 
   // Near Stop Logic (Subtle Delight)
   useEffect(() => {
@@ -160,47 +196,75 @@ const BusDetails = () => {
           </button>
         </div>
 
-        {/* Location Permission Button */}
-        {permissionStatus === 'prompt' && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] w-full max-w-xs px-4">
-            <Button
-              onClick={requestLocation}
-              className="w-full bg-primary shadow-xl animate-bounce-in"
-            >
-              <Navigation className="w-4 h-4 mr-2" />
-              Enable Live Location
-            </Button>
-          </div>
-        )}
-        {permissionStatus === 'denied' && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] w-full max-w-xs px-4">
-            <div className="bg-destructive/90 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center justify-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              Location access denied
+        {/* Location Permission Enforcement (Phase 7) */}
+        {permissionStatus !== 'granted' ? (
+          <div className="absolute inset-0 z-[400] bg-white/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
+            <div className="relative mb-8">
+              <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
+                <Navigation className={cn("w-12 h-12 text-primary", permissionStatus === 'prompt' && "animate-bounce")} />
+              </div>
+              <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-2xl bg-accent flex items-center justify-center shadow-lg border-2 border-white">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
             </div>
+
+            <h3 className="text-2xl font-black text-foreground mb-4 leading-tight">
+              {permissionStatus === 'denied' ? 'Location Access Blocked' : 'Enable Live Tracking'}
+            </h3>
+
+            <p className="text-base text-muted-foreground mb-8 max-w-[320px] leading-relaxed">
+              {permissionStatus === 'denied'
+                ? 'You have denied location access. Please enable it in your browser settings to track the bus and find nearby stands.'
+                : 'Can I turn on your current location to locate the nearby bus stand from your current location and show the expected bus location?'}
+            </p>
+
+            {permissionStatus === 'prompt' && (
+              <div className="space-y-4 w-full max-w-[280px]">
+                <Button
+                  onClick={requestLocation}
+                  className="w-full bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 h-14 rounded-2xl font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                >
+                  <Signal className="w-5 h-5 animate-pulse" />
+                  Yes, Turn it On
+                </Button>
+                <p className="text-xs text-muted-foreground">Your location is only used for this trip</p>
+              </div>
+            )}
+
+            {permissionStatus === 'denied' && (
+              <Button
+                variant="outline"
+                onClick={() => window.location.reload()}
+                className="h-14 px-10 rounded-2xl font-bold border-2"
+              >
+                Retry After Enabling
+              </Button>
+            )}
           </div>
+        ) : (
+          <>
+            <LiveMap
+              routeId={bus.id}
+              initialLat={bus.location?.lat}
+              initialLng={bus.location?.lng}
+              stops={bus.intermediateStops}
+              userLocation={userLocation}
+            />
+
+            {/* Status Badge overlay on Map */}
+            <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-sm border border-white/50 flex items-center gap-2">
+              {!matchesStatus?.isOffline && !['completed', 'not-started'].includes(bus.status) && (
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                </span>
+              )}
+              <span className={cn("text-xs font-bold uppercase tracking-wide", matchesStatus?.statusColor)}>
+                {matchesStatus?.smartStatus}
+              </span>
+            </div>
+          </>
         )}
-
-        <LiveMap
-          routeId={bus.id}
-          initialLat={bus.location?.lat}
-          initialLng={bus.location?.lng}
-          stops={bus.intermediateStops}
-          userLocation={userLocation}
-        />
-
-        {/* Status Badge overlay on Map */}
-        <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-sm border border-white/50 flex items-center gap-2">
-          {!matchesStatus?.isOffline && !['completed', 'not-started'].includes(bus.status) && (
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-            </span>
-          )}
-          <span className={cn("text-xs font-bold uppercase tracking-wide", matchesStatus?.statusColor)}>
-            {matchesStatus?.smartStatus}
-          </span>
-        </div>
       </div>
 
       {/* Content Section - 55% mobile height, 40% desktop width */}
@@ -258,6 +322,32 @@ const BusDetails = () => {
               driverName={bus.driverName || "Unknown Driver"}
               driverPhone={bus.driverPhone || ""}
             />
+
+            {/* Service Details Card */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider border-b border-border/50 pb-2">Service Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Bus Type</span>
+                  <span className="font-semibold text-foreground bg-secondary/50 px-2 py-1 rounded inline-block">{bus.busType || 'Standard'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Service Class</span>
+                  <span className="font-semibold text-foreground bg-secondary/50 px-2 py-1 rounded inline-block">{bus.serviceType || 'Ordinary'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Depot</span>
+                  <span className="font-semibold text-foreground">{bus.depot || 'Tirunelveli'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Via Route</span>
+                  <span className="font-semibold text-foreground text-sm leading-tight">
+                    {bus.via && bus.via.length > 0 ? bus.via.join(", ") : "Direct"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <BusInfoCard
               busNumber={bus.busNumber}
               capacity={bus.capacity}
@@ -265,10 +355,111 @@ const BusDetails = () => {
             />
           </div>
 
-          {/* Timeline */}
+          {/* Journey Breakdown Card (Enhanced Distance Tracking) */}
+          {userLocation && nearestStop && bus.intermediateStops && (
+            <div className="bg-white border-2 border-primary/10 rounded-3xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom duration-500">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-primary" /> 
+                Your Optimized Journey
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Segment 1 */}
+                <div className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div className="w-0.5 h-full bg-slate-200 my-1 border-dashed border"></div>
+                  </div>
+                  <div className="flex-1 pb-4">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Step 1: Get to the stand</p>
+                    <p className="text-sm font-bold text-foreground">Walk to {nearestStop.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-black text-emerald-600">{calculateWalkingTime(nearestStop.distance)} mins</span>
+                      <span className="text-[10px] text-muted-foreground">({nearestStop.distance.toFixed(2)} km away)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Segment 2 */}
+                <div className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <BusIcon className="w-4 h-4 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    {(() => {
+                      const sortedStops = [...bus.intermediateStops!].sort((a, b) => a.order - b.order);
+                      const lastStop = sortedStops[sortedStops.length - 1];
+                      const currentStopIdx = sortedStops.findIndex(s => s.name === nearestStop.name);
+                      const standToDestDist = calculateRouteDistance(sortedStops, currentStopIdx);
+                      const busTravelTime = Math.ceil((standToDestDist / 35) * 60);
+
+                      return (
+                        <>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Step 2: Board the bus</p>
+                          <p className="text-sm font-bold text-foreground">Ride to {lastStop?.name || bus.routeTo}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-black text-primary">~{busTravelTime} mins</span>
+                            <span className="text-[10px] text-muted-foreground">({standToDestDist.toFixed(1)} km journey)</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between border border-slate-100">
+                <span className="text-xs font-bold text-slate-500">Bus Location</span>
+                <span className="text-xs font-black text-slate-700">
+                  {bus.location ? `${calculateDistance(userLocation.lat, userLocation.lng, bus.location.lat, bus.location.lng).toFixed(2)} km from you` : 'Locating...'}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div>
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 px-1">Route Stoppages</h3>
-            <BusTimeline timings={bus.timings || []} />
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Route Stoppages</h3>
+              {notifyStop && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 text-destructive hover:text-destructive"
+                  onClick={() => setNotifyStop(null)}
+                >
+                  Cancel Alerts
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(Array.isArray(bus.timings) ? bus.timings : []).map((timing, idx) => (
+                <div key={idx} className="flex items-center justify-between group">
+                  <div className="flex-1">
+                    <BusTimeline timings={[timing]} nearestStopName={nearestStop?.name} />
+                  </div>
+                  {timing.status === "upcoming" && (
+                    <Button
+                      variant={notifyStop?.name === timing.location ? "hero" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "ml-2 rounded-xl h-8 text-[10px] font-bold uppercase tracking-wider transition-all",
+                        notifyStop?.name === timing.location ? "bg-accent text-white" : "opacity-0 group-hover:opacity-100"
+                      )}
+                      onClick={() => {
+                        const stop = bus.intermediateStops?.find(s => s.name === timing.location);
+                        if (stop) setNotifyStop({ name: stop.name, lat: stop.lat, lng: stop.lng });
+                      }}
+                    >
+                      {notifyStop?.name === timing.location ? "Alert On" : "Set Alert"}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Last Updated Footer */}

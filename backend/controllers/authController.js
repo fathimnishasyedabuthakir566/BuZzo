@@ -1,5 +1,12 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
+const jwt = require('jsonwebtoken');
+
+const generateToken = (id) => {
+    return jwt.sign({ id }, process.env.JWT_SECRET, {
+        expiresIn: '30d',
+    });
+};
 
 // @desc    Register new user
 // @route   POST /api/users
@@ -9,10 +16,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
     console.log('Register Request:', { name, email, role });
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phone) {
         console.log('Error: Missing fields');
         res.status(400);
-        throw new Error('Please add all fields');
+        throw new Error('Please add all fields including phone number');
     }
 
     // Check if user exists
@@ -27,8 +34,8 @@ const registerUser = asyncHandler(async (req, res) => {
     const user = await User.create({
         name,
         email,
-        password, // Note: Password should be hashed in a real app
-        role,
+        password,
+        role: role || 'USER', // Default role is USER
         phone,
         city,
         profilePhoto
@@ -44,7 +51,7 @@ const registerUser = asyncHandler(async (req, res) => {
             phone: user.phone,
             city: user.city,
             profilePhoto: user.profilePhoto,
-            token: null, // Placeholder for JWT
+            token: generateToken(user._id),
         });
     } else {
         console.log('User registration failed');
@@ -64,14 +71,12 @@ const loginUser = asyncHandler(async (req, res) => {
     // Check for user email
     const user = await User.findOne({ email });
 
-    if (!user) {
-        console.log('User not found:', email);
-        res.status(401);
-        throw new Error('Invalid credentials');
+    if (user && user.isBlocked) {
+        res.status(403);
+        throw new Error('This account has been blocked. Please contact support.');
     }
 
-    // Basic check without hash for now
-    if (user.password === password) {
+    if (user && (await user.matchPassword(password))) {
         console.log('Login successful for:', email);
 
         // Update activity
@@ -89,11 +94,11 @@ const loginUser = asyncHandler(async (req, res) => {
             role: user.role,
             phone: user.phone,
             city: user.city,
-            profilePhoto: user.profilePhoto, // Make sure to return this
-            token: null, // Placeholder for JWT
+            profilePhoto: user.profilePhoto,
+            token: generateToken(user._id),
         });
     } else {
-        console.log('Password mismatch for:', email);
+        console.log('Authentication failed for:', email);
         res.status(401);
         throw new Error('Invalid credentials');
     }
@@ -103,8 +108,40 @@ const loginUser = asyncHandler(async (req, res) => {
 // @route   GET /api/users/activity
 // @access  Private (Admin)
 const getUserActivity = asyncHandler(async (req, res) => {
-    const users = await User.find({}, 'name email role lastActive loginHistory').sort('-lastActive');
+    const users = await User.find({}, 'name email role phone lastActive loginHistory isBlocked').sort('-lastActive');
     res.json(users);
+});
+
+// @desc    Block user
+// @route   POST /api/users/:id/block
+// @access  Private (Admin)
+const blockUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+        user.isBlocked = true;
+        await user.save();
+        res.json({ message: 'User blocked' });
+    } else {
+        res.status(404);
+        throw new Error('User not found');
+    }
+});
+
+// @desc    Unblock user
+// @route   POST /api/users/:id/unblock
+// @access  Private (Admin)
+const unblockUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+        user.isBlocked = false;
+        await user.save();
+        res.json({ message: 'User unblocked' });
+    } else {
+        res.status(404);
+        throw new Error('User not found');
+    }
 });
 
 // @desc    Update user profile
@@ -186,4 +223,6 @@ module.exports = {
     updateUserProfile,
     uploadProfileImage,
     getUserActivity,
+    blockUser,
+    unblockUser,
 };

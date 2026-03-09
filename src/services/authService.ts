@@ -31,7 +31,10 @@ export interface UserActivity {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string;
   lastActive?: string;
+  lastLogin?: string;
+  isBlocked?: boolean;
   loginHistory?: Array<{ ip: string; device: string; timestamp: string }>;
 }
 
@@ -215,6 +218,32 @@ export const authService = {
       return await response.json();
     } catch (error) {
       return [];
+    }
+  },
+
+  // Block User
+  async blockUser(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(`/api/users/${userId}/block`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message || (response.ok ? 'User blocked' : 'Failed to block user') };
+    } catch (error) {
+      return { success: false, message: 'Network error' };
+    }
+  },
+
+  // Unblock User
+  async unblockUser(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(`/api/users/${userId}/unblock`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message || (response.ok ? 'User unblocked' : 'Failed to unblock user') };
+    } catch (error) {
+      return { success: false, message: 'Network error' };
     }
   },
 };

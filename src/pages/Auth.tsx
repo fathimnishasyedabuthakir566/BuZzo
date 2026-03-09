@@ -43,9 +43,9 @@ const Auth = () => {
 
         if (response.success) {
           toast.success("Login successful!");
-          if (response.user?.role === 'admin') {
+          if (response.user?.role.toLowerCase() === 'admin') {
             navigate('/admin');
-          } else if (response.user?.role === 'driver') {
+          } else if (response.user?.role.toLowerCase() === 'driver') {
             navigate('/driver');
           } else {
             navigate('/dashboard');
@@ -72,9 +72,9 @@ const Auth = () => {
 
         if (response.success) {
           toast.success("Account created successfully!");
-          if (response.user?.role === 'admin') {
+          if (response.user?.role.toLowerCase() === 'admin') {
             navigate('/admin');
-          } else if (response.user?.role === 'driver') {
+          } else if (response.user?.role.toLowerCase() === 'driver') {
             navigate('/driver');
           } else {
             navigate('/dashboard');

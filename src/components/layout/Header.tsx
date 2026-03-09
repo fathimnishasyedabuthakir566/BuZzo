@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bus, Menu, X, MapPin, User as UserIcon, LogIn, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { Bus, Menu, X, MapPin, User as UserIcon, LogIn, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
-import { useTheme } from "next-themes";
+// Theme import removed
 import type { User } from "@/types";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const { theme, setTheme } = useTheme();
+  // Theme hook removed
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -81,16 +81,7 @@ const Header = () => {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="mr-2"
-            >
-              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+            {/* Theme toggle removed */}
 
             {user ? (
               <>
@@ -158,18 +149,7 @@ const Header = () => {
                 </Link>
               ))}
               <div className="px-4 py-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  onClick={() => {
-                    setTheme(theme === "dark" ? "light" : "dark");
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  Toggle Theme
-                </Button>
+                {/* Mobile theme toggle removed */}
               </div>
 
               <div className="flex flex-col gap-2 mt-2 px-4">

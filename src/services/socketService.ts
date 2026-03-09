@@ -8,7 +8,12 @@ interface LocationData {
     lat: number;
     lng: number;
     busId?: string;
-    [key: string]: unknown;
+    status?: string;
+    isActive?: boolean;
+    currentStop?: string;
+    nextStop?: string;
+    lastUpdated?: string;
+    [key: string]: any; // Change from unknown to any to be more permissive if needed, but the above are explicitly typed
 }
 
 class SocketService {

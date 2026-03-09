@@ -161,7 +161,22 @@ const DriverDashboard = () => {
         toast.info("Trip ended. You are now offline.");
     };
 
-    if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    if (isLoading && !user) {
+        return (
+            <Layout>
+                <div className="container mx-auto px-4 py-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-1 glass-card rounded-2xl h-[500px] skeleton" />
+                        <div className="lg:col-span-2 space-y-8">
+                            <div className="glass-card rounded-2xl h-64 skeleton" />
+                            <div className="glass-card rounded-2xl h-64 skeleton" />
+                        </div>
+                    </div>
+                </div>
+            </Layout>
+        );
+    }
+
     if (!user) return null;
 
     return (
@@ -265,11 +280,11 @@ const DriverDashboard = () => {
                                         </div>
                                         <Button
                                             size="lg"
-                                            className={`rounded-full h-14 px-8 gap-3 transition-all ${isTracking ? 'bg-destructive hover:bg-destructive/90' : 'bg-success hover:bg-success/90'}`}
+                                            className={`rounded-full h-16 px-10 gap-3 transition-all shadow-xl font-black text-lg ${isTracking ? 'bg-destructive hover:bg-destructive/90 animate-pulse' : 'bg-success hover:bg-success/90'}`}
                                             onClick={toggleTrip}
                                         >
-                                            <Power className="w-5 h-5" />
-                                            {isTracking ? 'Stop Tracking' : 'Enable GPS'}
+                                            <Power className="w-6 h-6" />
+                                            {isTracking ? 'STOP TRACKING' : 'START TRACKING'}
                                         </Button>
                                     </div>
 
@@ -283,24 +298,33 @@ const DriverDashboard = () => {
                                     )}
                                 </div>
 
-                                {/* Assigned Bus Details */}
-                                <div className="glass-card rounded-2xl p-8 shadow-lg">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-lg font-bold flex items-center gap-2">
-                                            <Bus className="w-5 h-5 text-primary" />
-                                            Current Assignment
-                                        </h3>
-                                        <div className="flex gap-2">
-                                            <select
-                                                className="bg-secondary px-3 py-1 rounded-lg text-sm border-none focus:ring-2 focus:ring-primary"
-                                                onChange={(e) => handleBusAssignment(e.target.value)}
-                                                value={assignedBus?.id || ""}
+                                {/* Trip Management Hub */}
+                                <div className="glass-card rounded-2xl p-8 shadow-lg bg-gradient-to-br from-card to-secondary/10">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 pb-6 border-b border-border/50">
+                                        <div>
+                                            <h3 className="text-2xl font-black flex items-center gap-3">
+                                                <Bus className="w-8 h-8 text-primary" />
+                                                Trip Management Hub
+                                            </h3>
+                                            <p className="text-muted-foreground">Manage your current assignment and tracking status</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-3">
+                                            <Button
+                                                variant="outline"
+                                                className="rounded-xl gap-2 font-bold"
+                                                onClick={() => navigate('/driver?view=buses')}
                                             >
-                                                <option value="" disabled>Select a Bus</option>
-                                                {allBuses.map(b => (
-                                                    <option key={b.id} value={b.id}>{b.busNumber} - {b.name}</option>
-                                                ))}
-                                            </select>
+                                                <Edit2 className="w-4 h-4" />
+                                                Update Bus
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="rounded-xl gap-2 font-bold"
+                                                onClick={() => navigate('/driver-profile')}
+                                            >
+                                                <Navigation className="w-4 h-4" />
+                                                Update Route
+                                            </Button>
                                         </div>
                                     </div>
 

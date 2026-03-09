@@ -13,7 +13,7 @@ interface BusCardProps {
   eta?: string;
   lastUpdate?: string;
   currentLocation?: string;
-  scheduledTime: string;
+  scheduledTime: string | string[];
   platformNumber?: number;
   className?: string;
 }
@@ -31,6 +31,8 @@ const BusCard = ({
   platformNumber,
   className,
 }: BusCardProps) => {
+  const displayScheduledTime = Array.isArray(scheduledTime) ? scheduledTime[0] : scheduledTime;
+
   return (
     <Link to={`/bus/${id}`} className={cn("block", className)}>
       <div className="bus-card group relative overflow-hidden">
@@ -43,7 +45,10 @@ const BusCard = ({
         <div className="flex items-start justify-between gap-4 mb-3 mt-2">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-hero flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-              <Bus className="w-6 h-6 text-primary-foreground animate-bus-move" />
+              <Bus className={cn(
+                "w-6 h-6 text-primary-foreground",
+                (status === "active" || status === "on-time" || status === "on-route") && "animate-bus-move"
+              )} />
             </div>
             <div className="min-w-0">
               <h3 className="card-title group-hover:text-accent transition-colors truncate pr-20">
@@ -73,7 +78,7 @@ const BusCard = ({
             <Clock className="w-4 h-4 text-accent" />
             <div>
               <p className="text-xs text-muted-foreground">Scheduled</p>
-              <p className="text-sm font-semibold text-foreground">{scheduledTime}</p>
+              <p className="text-sm font-semibold text-foreground">{displayScheduledTime}</p>
             </div>
           </div>
           {eta && (

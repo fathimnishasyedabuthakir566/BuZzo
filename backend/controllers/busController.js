@@ -1,5 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Bus = require('../models/busModel');
+const dijkstra = require('../utils/dijkstra');
+const { buildGraphFromBuses } = require('../utils/graphBuilder');
 
 // @desc    Get all buses
 // @route   GET /api/buses
@@ -28,18 +30,58 @@ const getBuses = asyncHandler(async (req, res) => {
 const getBusById = asyncHandler(async (req, res) => {
     const bus = await Bus.findById(req.params.id);
     if (bus) {
-        res.json(bus);
+        // Map intermediateStops to timings format for frontend
+        const timings = (bus.intermediateStops || []).map(stop => {
+            let status = 'upcoming';
+            if (stop.name === bus.currentStop) status = 'current';
+            // Simple logic: if order < current stop's order, it's departed
+            const currentStopObj = bus.intermediateStops.find(s => s.name === bus.currentStop);
+            if (currentStopObj && stop.order < currentStopObj.order) status = 'departed';
+
+            return {
+                location: stop.name,
+                time: bus.scheduledTime[0] || "--:--", // Placeholder or logic for stop-specific time
+                status
+            };
+        });
+
+        res.json({
+            ...bus._doc,
+            id: bus._id,
+            timings: timings.length > 0 ? timings : [
+                { location: bus.routeFrom, time: bus.scheduledTime[0] || "--:--", status: 'departed' },
+                { location: bus.routeTo, time: bus.scheduledTime[bus.scheduledTime.length - 1] || "--:--", status: 'upcoming' }
+            ]
+        });
     } else {
         res.status(404);
         throw new Error('Bus not found');
     }
 });
 
-// @desc    Create a bus
-// @route   POST /api/buses
-// @access  Private (Admin/Driver)
 const createBus = asyncHandler(async (req, res) => {
-    const { name, busNumber, routeFrom, routeTo, scheduledTime, driverName, driverPhone, conductorName, conductorPhone, capacity, ac } = req.body;
+    const {
+        name,
+        busNumber,
+        routeFrom,
+        routeTo,
+        scheduledTime,
+        depot,
+        busType,
+        serviceType,
+        intermediateStops,
+        driverName,
+        driverPhone,
+        conductorName,
+        conductorPhone,
+        capacity,
+        ac
+    } = req.body;
+
+    if (!busNumber || !routeFrom || !routeTo) {
+        res.status(400);
+        throw new Error('Please provide bus number, source, and destination');
+    }
 
     const busExists = await Bus.findOne({ busNumber });
     if (busExists) {
@@ -48,11 +90,15 @@ const createBus = asyncHandler(async (req, res) => {
     }
 
     const bus = await Bus.create({
-        name,
+        name: name || busNumber,
         busNumber,
         routeFrom,
         routeTo,
-        scheduledTime,
+        scheduledTime: scheduledTime || [],
+        depot,
+        busType,
+        serviceType,
+        intermediateStops: intermediateStops || [],
         driverName,
         driverPhone,
         conductorName,
@@ -120,11 +166,70 @@ const getRoutes = asyncHandler(async (req, res) => {
     res.json(Array.from(routes));
 });
 
+// @desc    Get shortest path between stops
+// @route   GET /api/buses/shortest-path
+// @access  Public
+const getShortestPath = asyncHandler(async (req, res) => {
+    const { from, to } = req.query;
+
+    if (!from || !to) {
+        res.status(400);
+        throw new Error('Please provide from and to stops');
+    }
+
+    const graph = await buildGraphFromBuses();
+    
+    // Ensure both nodes exist in the graph
+    if (!graph[from] || !graph[to]) {
+        res.status(404);
+        throw new Error('One or both stops not found in the bus network');
+    }
+
+    const result = dijkstra(graph, from, to);
+
+    res.json({
+        from,
+        to,
+        path: result.path,
+        distance: `${result.distance.toFixed(2)} km`
+    });
+});
+
+// @desc    Add intermediate stop to a bus
+// @route   POST /api/buses/:id/add-stop
+// @access  Private (Admin)
+const addIntermediateStop = asyncHandler(async (req, res) => {
+    const { name, lat, lng, order } = req.body;
+
+    if (!name || lat === undefined || lng === undefined || order === undefined) {
+        res.status(400);
+        throw new Error('Please provide name, lat, lng, and order for the stop');
+    }
+
+    const bus = await Bus.findById(req.params.id);
+
+    if (bus) {
+        // Add the new stop
+        bus.intermediateStops.push({ name, lat, lng, order });
+        
+        // Re-sort stops by order to ensure consistency
+        bus.intermediateStops.sort((a, b) => a.order - b.order);
+
+        await bus.save();
+        res.status(201).json(bus);
+    } else {
+        res.status(404);
+        throw new Error('Bus not found');
+    }
+});
+
 module.exports = {
     getBuses,
     getBusById,
     createBus,
     updateBus,
     deleteBus,
-    getRoutes
+    getRoutes,
+    getShortestPath,
+    addIntermediateStop
 };

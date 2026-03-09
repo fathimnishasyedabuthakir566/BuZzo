@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import BusList from "./pages/BusList";
 import BusDetails from "./pages/BusDetails";
+import BusDirectory from "./pages/BusDirectory";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
@@ -15,35 +16,35 @@ import UserProfile from "./pages/UserProfile";
 import DriverProfile from "./pages/DriverProfile";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
-import { ThemeProvider } from "./components/theme-provider";
+// ThemeProvider import removed
 
 const queryClient = new QueryClient();
 
 const App = () => {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/buses" element={<BusList />} />
-              <Route path="/bus/:id" element={<BusDetails />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/dashboard" element={<PassengerDashboard />} />
-              <Route path="/profile" element={<UserProfile />} />
-              <Route path="/driver" element={<DriverDashboard />} />
-              <Route path="/driver-profile" element={<DriverProfile />} />
-              <Route path="/about" element={<About />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    // ThemeProvider removed
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/buses" element={<BusList />} />
+            <Route path="/bus-directory" element={<BusDirectory />} />
+            <Route path="/bus/:id" element={<BusDetails />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/dashboard" element={<PassengerDashboard />} />
+            <Route path="/profile" element={<UserProfile />} />
+            <Route path="/driver" element={<DriverDashboard />} />
+            <Route path="/driver-profile" element={<DriverProfile />} />
+            <Route path="/about" element={<About />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 

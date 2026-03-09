@@ -10,7 +10,12 @@ const Bus = require('./models/busModel'); // Import Bus Model
 const { calculateStops } = require('./utils/routeUtils');
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Define port - prioritize env variable, then default to 5001 (or 8082 if running as standalone/electron)
+// We will set PORT=8082 in the Electron environment
+const PORT = process.env.PORT || 5001;
+
 
 // Connect to database
 connectDB();
@@ -30,6 +35,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Serve Frontend in Production/Desktop Mode
+// If we are in production OR explicitly told to serve static
+if (process.env.NODE_ENV === 'production' || process.env.SERVE_STATIC === 'true') {
+    // Serve static files from the React app build directory
+    // Assuming backend/server.js -> backend/ -> root/ -> dist/
+    const distPath = path.join(__dirname, '../dist');
+    app.use(express.static(distPath));
+
+    app.get('*', (req, res) => {
+        // Don't intercept API routes or socket.io
+        if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/socket.io')) {
+            return next();
+        }
+        res.sendFile(path.resolve(distPath, 'index.html'));
+    });
+}
+
 
 // Socket.io Connection Logic
 io.on('connection', (socket) => {
@@ -82,12 +105,17 @@ io.on('connection', (socket) => {
 
             await Bus.findByIdAndUpdate(data.routeId, updateData);
 
-            // Broadcast ENRICHED data to everyone in that route room
-            io.to(data.routeId).emit('receive-location', {
+            // Broadcast ENRICHED data to everyone (Global) and the specific route room
+            const payload = {
                 ...data,
+                busId: data.routeId, // Ensure busId is set for frontend compatibility
                 currentStop,
-                nextStop
-            });
+                nextStop,
+                lastUpdated: updateData.location.lastUpdated
+            };
+
+            io.emit('receive-location', payload); // Global broadcast
+            io.to(data.routeId).emit('receive-location', payload); // Room broadcast (for backward compatibility)
 
         } catch (err) {
             console.error('Error processing location update:', err.message);
@@ -121,7 +149,8 @@ app.use('/api/buses', require('./routes/busRoutes')); // Add Bus Routes
 // Error Handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+// const PORT = process.env.PORT || 5000;
+
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

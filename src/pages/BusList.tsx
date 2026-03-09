@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Bus, RefreshCw, Calendar, MapPin } from "lucide-react";
 import { Layout } from "@/components/layout";
-import { BusCard } from "@/components/bus";
+import { BusCard, LiveStatusPanel } from "@/components/bus";
 import { SearchFilter, SkeletonCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import AllBusesMap from "@/components/map/AllBusesMap";
 import type { Bus as BusType } from "@/types";
 import { busService } from "@/services/busService";
+import { socketService } from "@/services/socketService";
 
 const BusList = () => {
   const [buses, setBuses] = useState<BusType[]>([]);
@@ -33,6 +34,35 @@ const BusList = () => {
 
   useEffect(() => {
     fetchBusesData();
+
+    socketService.connect();
+    socketService.subscribeToLocation((data) => {
+      setAllBuses(prev => prev.map(bus =>
+        bus.id === data.busId || bus.id === data.routeId
+          ? {
+            ...bus,
+            location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() },
+            status: (data.status as any) || bus.status,
+            isActive: data.isActive !== undefined ? data.isActive : true
+          }
+          : bus
+      ));
+
+      setBuses(prev => prev.map(bus =>
+        bus.id === data.busId || bus.id === data.routeId
+          ? {
+            ...bus,
+            location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() },
+            status: (data.status as any) || bus.status,
+            isActive: data.isActive !== undefined ? data.isActive : true
+          }
+          : bus
+      ));
+    });
+
+    return () => {
+      socketService.unsubscribeFromLocation();
+    };
   }, []);
 
   const handleSearch = (query: string) => {
@@ -103,30 +133,7 @@ const BusList = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-              <div className="glass-card rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-foreground">{buses.length}</p>
-                <p className="text-sm text-muted-foreground">Available Today</p>
-              </div>
-              <div className="glass-card rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-success">
-                  {buses.filter((b) => b.status === "on-time").length}
-                </p>
-                <p className="text-sm text-muted-foreground">On Time</p>
-              </div>
-              <div className="glass-card rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-info">
-                  {buses.filter((b) => b.status === "arriving").length}
-                </p>
-                <p className="text-sm text-muted-foreground">Arriving Soon</p>
-              </div>
-              <div className="glass-card rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-warning">
-                  {buses.filter((b) => b.status === "delayed").length}
-                </p>
-                <p className="text-sm text-muted-foreground">Delayed</p>
-              </div>
-            </div>
+            <LiveStatusPanel buses={allBuses} className="mb-8" />
 
             {/* Search & Filter */}
             <SearchFilter

@@ -2,12 +2,13 @@
 // BUS TYPES
 // ==========================================
 
-export type BusStatus = "on-time" | "delayed" | "arriving" | "departed" | "unavailable" | "completed" | "not-started";
+export type BusStatus = "active" | "inactive" | "on-route" | "delayed" | "on-time" | "arriving" | "departed" | "unavailable" | "completed" | "not-started";
 
 export interface BusTiming {
   time: string;
   status: "departed" | "current" | "upcoming";
   location: string;
+  eta?: string;
 }
 
 export interface Bus {
@@ -15,7 +16,7 @@ export interface Bus {
   name: string;
   routeFrom: string;
   routeTo: string;
-  scheduledTime: string;
+  scheduledTime: string | string[]; // Can be single string or array of strings
   platformNumber?: number;
   intermediateStops?: {
     name: string;
@@ -37,6 +38,10 @@ export interface Bus {
   capacity: number;
   ac: boolean;
   isActive: boolean;
+  busType?: "Town Bus" | "Mofussil" | "Express" | "Deluxe" | "AC" | "Ultra Deluxe" | "SFS";
+  serviceType?: "Ordinary" | "Express" | "Special" | "1to1" | "EAC" | "BPR";
+  depot?: string;
+  via?: string[];
   route?: string;
   location?: {
     lat: number;
@@ -66,6 +71,7 @@ export interface User {
   city?: string;
   profilePhoto?: string;
   assignedBus?: string;
+  isBlocked?: boolean;
   createdAt: string;
 }
 

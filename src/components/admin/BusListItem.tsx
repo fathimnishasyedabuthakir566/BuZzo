@@ -9,9 +9,11 @@ interface BusListItemProps {
   onUpdateLocation?: (busId: string) => void;
   onEdit?: (busId: string) => void;
   onDelete?: (busId: string) => void;
+  onTrack?: (busId: string) => void;
+  isTracking?: boolean;
 }
 
-const BusListItem = ({ bus, onUpdateLocation, onEdit, onDelete }: BusListItemProps) => {
+const BusListItem = ({ bus, onUpdateLocation, onEdit, onDelete, onTrack, isTracking }: BusListItemProps) => {
   return (
     <div className="p-4 hover:bg-secondary/50 transition-colors">
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -43,7 +45,6 @@ const BusListItem = ({ bus, onUpdateLocation, onEdit, onDelete }: BusListItemPro
           </div>
         </Link>
 
-        {/* Status */}
         <div className="flex items-center gap-4">
           <StatusBadge status={bus.status} />
           <div className="text-right">
@@ -52,16 +53,18 @@ const BusListItem = ({ bus, onUpdateLocation, onEdit, onDelete }: BusListItemPro
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-2 lg:ml-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onUpdateLocation?.(bus.id)}
-          >
-            <Navigation className="w-4 h-4" />
-            Update Location
-          </Button>
+          {onTrack && (
+            <Button
+              variant={isTracking ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => onTrack(bus.id)}
+              className={isTracking ? "animate-pulse" : ""}
+            >
+              <Navigation className="w-4 h-4" />
+              {isTracking ? "Stop tracking" : "Start Tracking"}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

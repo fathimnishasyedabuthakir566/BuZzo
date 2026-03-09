@@ -89,9 +89,10 @@ const Index = () => {
                     Track Buses Now
                   </Button>
                 </Link>
-                <Link to="/auth?role=admin">
+                <Link to="/bus-directory">
                   <Button variant="hero-outline" size="xl">
-                    I'm a Bus Operator
+                    <MapPin className="w-5 h-5" />
+                    Bus Directory
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
