@@ -5,41 +5,43 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { BusCard } from "@/components/bus";
 import { busService } from "@/services/busService";
+import { useTranslation } from "react-i18next";
 import type { Bus as BusType } from "@/types";
 
-const features = [
-  {
-    icon: MapPin,
-    title: "Live Tracking",
-    description: "Track your bus location in real-time on an interactive map",
-  },
-  {
-    icon: Clock,
-    title: "Accurate ETA",
-    description: "Get precise arrival time updates from bus drivers",
-  },
-  {
-    icon: Shield,
-    title: "Reliable Updates",
-    description: "Driver-verified updates ensure accurate information",
-  },
-  {
-    icon: Users,
-    title: "For Everyone",
-    description: "Easy to use for passengers and operators alike",
-  },
-];
-
-const benefits = [
-  "No more waiting at bus stops wondering when the bus will arrive",
-  "Plan your commute with accurate departure and arrival times",
-  "Drivers update their location ensuring you get real information",
-  "Works on all devices - phone, tablet, or computer",
-];
-
 const Index = () => {
+  const { t } = useTranslation();
   const [buses, setBuses] = useState<BusType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const features = [
+    {
+      icon: MapPin,
+      title: t("live_tracking"),
+      description: "Track your bus location in real-time on an interactive map",
+    },
+    {
+      icon: Clock,
+      title: t("accurate_eta"),
+      description: "Get precise arrival time updates from bus drivers",
+    },
+    {
+      icon: Shield,
+      title: t("reliable_updates"),
+      description: "Driver-verified updates ensure accurate information",
+    },
+    {
+      icon: Users,
+      title: t("for_everyone"),
+      description: "Easy to use for passengers and operators alike",
+    },
+  ];
+
+  const benefits = [
+    "No more waiting at bus stops wondering when the bus will arrive",
+    "Plan your commute with accurate departure and arrival times",
+    "Drivers update their location ensuring you get real information",
+    "Works on all devices - phone, tablet, or computer",
+  ];
 
   useEffect(() => {
     const fetchBuses = async () => {
@@ -73,26 +75,25 @@ const Index = () => {
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-                Know Exactly When Your{" "}
-                <span className="gradient-text">Bus Arrives</span>
+                {t("hero_title_1")}{" "}
+                <span className="gradient-text">{t("hero_title_2")}</span>
               </h1>
 
               <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">
-                Real-time bus tracking for daily commuters traveling to Tirunelveli.
-                No more guessing – see live locations, accurate ETAs, and daily availability.
+                {t("hero_subtitle")}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link to="/buses">
                   <Button variant="hero" size="xl">
                     <Bus className="w-5 h-5" />
-                    Track Buses Now
+                    {t("track_buses_now")}
                   </Button>
                 </Link>
                 <Link to="/bus-directory">
                   <Button variant="hero-outline" size="xl">
                     <MapPin className="w-5 h-5" />
-                    Bus Directory
+                    {t("bus_directory")}
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
@@ -102,15 +103,15 @@ const Index = () => {
               <div className="mt-10 flex flex-wrap items-center gap-6 justify-center lg:justify-start">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-success" />
-                  Free to use
+                  {t("free_to_use")}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-success" />
-                  Real-time updates
+                  {t("real_time_updates")}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-success" />
-                  Driver verified
+                  {t("driver_verified")}
                 </div>
               </div>
             </div>
@@ -132,7 +133,7 @@ const Index = () => {
                 ) : (
                   <div className="glass-card p-8 text-center text-muted-foreground animate-fade-in">
                     <Bus className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                    <p>Loading real-time buses...</p>
+                    <p>{t("loading_buses")}</p>
                   </div>
                 )}
 
@@ -158,10 +159,9 @@ const Index = () => {
       <section className="py-20 bg-secondary/30">
         <div className="section-container">
           <div className="text-center mb-12">
-            <h2 className="page-header mb-4">Why Use BusTrack?</h2>
+            <h2 className="page-header mb-4">{t("why_use")}</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Built specifically for commuters in the Tirunelveli region, BusTrack solves the
-              unpredictable bus timing problem once and for all.
+              {t("why_use_desc")}
             </p>
           </div>
 
@@ -188,10 +188,9 @@ const Index = () => {
         <div className="section-container">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="page-header mb-6">Simple, Reliable Bus Tracking</h2>
+              <h2 className="page-header mb-6">{t("simple_reliable")}</h2>
               <p className="text-muted-foreground mb-8">
-                BusTrack connects bus operators directly with passengers. Drivers update their
-                location and ETA in real-time, so you always know when your bus will arrive.
+                {t("simple_reliable_desc")}
               </p>
 
               <ul className="space-y-4">
@@ -209,7 +208,7 @@ const Index = () => {
 
               <Link to="/buses" className="inline-block mt-8">
                 <Button variant="accent" size="lg">
-                  Start Tracking
+                  {t("start_tracking")}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -243,20 +242,20 @@ const Index = () => {
 
         <div className="section-container relative z-10 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-4">
-            Ready to Never Miss Your Bus Again?
+            {t("ready_to_never_miss")}
           </h2>
           <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-            Join thousands of commuters who trust BusTrack for their daily travel to Tirunelveli.
+            {t("join_thousands")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth?mode=register">
               <Button variant="glass" size="xl" className="bg-card text-foreground hover:bg-card/90">
-                Create Free Account
+                {t("create_free_account")}
               </Button>
             </Link>
             <Link to="/buses">
               <Button variant="hero-outline" size="xl" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/50">
-                Browse Buses
+                {t("browse_buses")}
               </Button>
             </Link>
           </div>

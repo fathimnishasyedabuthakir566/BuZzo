@@ -45,7 +45,7 @@ const AllBusesMap = ({ initialBuses }: AllBusesMapProps) => {
                         lng: data.lng, 
                         lastUpdated: data.lastUpdated || new Date().toISOString() 
                     },
-                    status: (data.status as any) || bus.status || 'on-time',
+                    status: (data.status as BusStatus) || bus.status || 'on-time',
                     isActive: data.isActive !== undefined ? data.isActive : true,
                     currentStop: data.currentStop || bus.currentStop,
                     nextStop: data.nextStop || bus.nextStop

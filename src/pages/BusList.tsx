@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Bus, RefreshCw, Calendar, MapPin } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { BusCard, LiveStatusPanel } from "@/components/bus";
@@ -16,7 +16,7 @@ const BusList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const fetchBusesData = async () => {
+  const fetchBusesData = useCallback(async () => {
     setIsLoading(true);
     try {
       const fetchedBuses = await busService.getAllBuses();
@@ -30,7 +30,7 @@ const BusList = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBusesData();
@@ -42,7 +42,7 @@ const BusList = () => {
           ? {
             ...bus,
             location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() },
-            status: (data.status as any) || bus.status,
+            status: (data.status as BusType['status']) || bus.status,
             isActive: data.isActive !== undefined ? data.isActive : true
           }
           : bus
@@ -53,7 +53,7 @@ const BusList = () => {
           ? {
             ...bus,
             location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() },
-            status: (data.status as any) || bus.status,
+            status: (data.status as BusType['status']) || bus.status,
             isActive: data.isActive !== undefined ? data.isActive : true
           }
           : bus
@@ -63,7 +63,7 @@ const BusList = () => {
     return () => {
       socketService.unsubscribeFromLocation();
     };
-  }, []);
+  }, [fetchBusesData]);
 
   const handleSearch = (query: string) => {
     if (!query) {

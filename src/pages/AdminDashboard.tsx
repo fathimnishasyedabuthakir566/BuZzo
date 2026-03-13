@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/layout";
 import { Plus, Search, Square, User as UserIcon, MapPin } from "lucide-react";
@@ -43,12 +43,12 @@ const AdminDashboard = () => {
   const [trackedBusId, setTrackedBusId] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  const fetchBuses = async () => {
+  const fetchBuses = useCallback(async () => {
     setLoading(true);
     const data = await busService.getAllBuses(true);
     setBuses(data);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
       }
       socketService.disconnect();
     };
-  }, [navigate]);
+  }, [navigate, fetchBuses]);
 
   const handleStartTracking = (busId: string) => {
     if (trackedBusId) {

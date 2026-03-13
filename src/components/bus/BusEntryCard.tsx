@@ -1,17 +1,30 @@
 
-import { MapPin, Bus as BusIcon, Route, Clock, Info } from "lucide-react";
+import { MapPin, Bus as BusIcon, Route, Clock, Info, Flag, Navigation } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Bus } from "@/types";
 import { useNavigate } from "react-router-dom";
+import { calculateDistance } from "@/utils/routeUtils";
 
 interface BusEntryCardProps {
     bus: Bus;
+    userLocation: { lat: number; lng: number } | null;
 }
 
-const BusEntryCard = ({ bus }: BusEntryCardProps) => {
+const BusEntryCard = ({ bus, userLocation }: BusEntryCardProps) => {
     const navigate = useNavigate();
+
+    // Find destination stop coordinates
+    const destinationCoords = (() => {
+        if (!bus.intermediateStops || bus.intermediateStops.length === 0) return null;
+        const sorted = [...bus.intermediateStops].sort((a, b) => a.order - b.order);
+        return sorted[sorted.length - 1];
+    })();
+
+    const distToDestination = userLocation && destinationCoords 
+        ? calculateDistance(userLocation.lat, userLocation.lng, destinationCoords.lat, destinationCoords.lng)
+        : null;
 
     const getBusTypeColor = (type: string | undefined) => {
         switch (type) {
@@ -107,14 +120,28 @@ const BusEntryCard = ({ bus }: BusEntryCardProps) => {
 
                     <div className="flex items-center gap-2 bg-secondary/30 p-2 rounded-lg border border-border/50">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <BusIcon className="w-4 h-4 text-primary" />
+                            <Flag className="w-4 h-4 text-primary" />
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Depot</span>
-                            <span className="text-sm font-semibold truncate max-w-[80px]" title={bus.depot}>{bus.depot || 'Tn'}</span>
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase truncate">Destination</span>
+                            <span className="text-sm font-semibold truncate" title={bus.routeTo}>{bus.routeTo}</span>
                         </div>
                     </div>
                 </div>
+
+                {distToDestination !== null && (
+                    <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <Navigation className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-tight">Relative To You</p>
+                            <p className="text-sm font-black text-emerald-600 leading-tight">
+                                {distToDestination.toFixed(1)} km to destination
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Timings Preview */}
                 {scheduledTimes.length > 1 && (

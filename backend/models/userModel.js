@@ -13,8 +13,12 @@ const userSchema = mongoose.Schema(
             unique: true,
         },
         password: {
+            type: String, // Optional for Google Auth users
+        },
+        googleId: {
             type: String,
-            required: [true, 'Please add a password'],
+            unique: true,
+            sparse: true, // Allows multiple null values
         },
         role: {
             type: String,
@@ -23,8 +27,7 @@ const userSchema = mongoose.Schema(
             uppercase: true, // Automatically convert to uppercase
         },
         phone: {
-            type: String,
-            required: [true, 'Please add a phone number'],
+            type: String, // Optional for Google users
         },
         isBlocked: {
             type: Boolean,
@@ -40,6 +43,25 @@ const userSchema = mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Bus',
         },
+        // --- DRIVER SPECIFIC FIELDS ---
+        licenseNumber: { type: String },
+        assignedRoute: { type: String },
+        totalTrips: { type: Number, default: 0 },
+        totalDistance: { type: Number, default: 0 }, // in km
+        drivingHours: { type: Number, default: 0 }, // in hours
+        lastTripTime: { type: Date },
+        emergencyContact: { type: String },
+        availabilityStatus: { 
+            type: String, 
+            enum: ['Available', 'On Trip', 'Offline'],
+            default: 'Offline'
+        },
+        // --- PASSENGER SPECIFIC FIELDS ---
+        favoriteRoutes: [{ type: String }],
+        travelHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip' }], // Array of trip references
+        // --- ADMIN SPECIFIC FIELDS ---
+        department: { type: String },
+
         lastActive: {
             type: Date,
         },
@@ -61,8 +83,8 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 // Encrypt password using bcrypt
 userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        next();
+    if (!this.isModified('password') || !this.password) {
+        return next();
     }
 
     const salt = await bcrypt.genSalt(10);

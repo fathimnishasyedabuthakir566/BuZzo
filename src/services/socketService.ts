@@ -13,7 +13,18 @@ interface LocationData {
     currentStop?: string;
     nextStop?: string;
     lastUpdated?: string;
-    [key: string]: any; // Change from unknown to any to be more permissive if needed, but the above are explicitly typed
+    [key: string]: string | number | boolean | undefined | null;
+}
+
+interface DriverStatsData {
+    driverId: string;
+    stats: {
+        totalTrips: number;
+        totalDistance: number;
+        drivingHours: number;
+        lastTripTime: string;
+        availabilityStatus: 'Available' | 'On Trip' | 'Offline';
+    }
 }
 
 class SocketService {
@@ -81,6 +92,16 @@ class SocketService {
     unsubscribeFromLocation() {
         if (!this.socket) return;
         this.socket.off('receive-location');
+    }
+
+    subscribeToDriverStats(callback: (data: DriverStatsData) => void) {
+        if (!this.socket) return;
+        this.socket.on('driverStatsUpdated', callback);
+    }
+
+    unsubscribeFromDriverStats() {
+        if (!this.socket) return;
+        this.socket.off('driverStatsUpdated');
     }
 
     on(event: string, callback: (...args: unknown[]) => void) {

@@ -33,28 +33,36 @@ const maduraiStops = [
   { name: "Madurai BS", lat: 9.9252, lng: 78.1198, order: 5 }
 ];
 
-const createMockBus = (id: string, name: string, number: string, from: string, to: string, times: string[], platform: number, type: any, service: any, depot: string, via: string[], stops: any[] = [], ac = false): Bus => ({
-  id,
-  name,
-  busNumber: number,
-  routeFrom: from,
-  routeTo: to,
-  scheduledTime: times,
-  platformNumber: platform,
-  busType: type,
-  serviceType: service,
-  depot: depot,
-  via: via || [],
-  intermediateStops: stops,
-  driverName: "City Driver",
-  driverPhone: "9876543210",
-  conductorName: "Staff",
-  conductorPhone: "9876543211",
-  capacity: 45,
-  ac,
-  status: 'on-time',
-  isActive: true
-});
+const createMockBus = (id: string, name: string, number: string, from: string, to: string, times: string[], platform: number, type: Bus['busType'], service: Bus['serviceType'], depot: string, via: string[], stops: Bus['intermediateStops'] = [], ac = false): Bus => {
+  const nextStop = via && via.length > 0 ? via[0] : (stops.length > 1 ? stops[1].name : to);
+  return {
+    id,
+    name,
+    busNumber: number,
+    routeFrom: from,
+    routeTo: to,
+    scheduledTime: times,
+    platformNumber: platform,
+    busType: type,
+    serviceType: service,
+    depot: depot,
+    via: via || [],
+    intermediateStops: stops,
+    driverName: "City Driver",
+    driverPhone: "9876543210",
+    driverRating: 4.5,
+    driverStatus: "Driving",
+    conductorName: "Staff",
+    conductorPhone: "9876543211",
+    capacity: 45,
+    availableSeats: Math.floor(Math.random() * 30) + 5,
+    speed: Math.floor(Math.random() * 20) + 30,
+    ac,
+    status: 'on-time',
+    isActive: Math.random() > 0.3,
+    nextStop
+  };
+};
 
 const MOCK_BUSES: Bus[] = [
   createMockBus("1", "Nagercoil End-to-End", "TN 72 N 1801", "Tirunelveli", "Nagercoil", ["05:40", "06:00", "06:20", "06:40", "07:00", "07:20"], 1, "Mofussil", "1to1", "Ranithottam", ["Nanguneri", "Valliyur", "Panagudi"], nagercoilStops),
@@ -137,35 +145,31 @@ export const busService = {
       console.log(`Fetching bus data (Page: ${page}, Limit: ${limit})...`);
       const startTime = performance.now();
 
-      try {
-        const response = await fetchWithTimeout(`${API_URL}?page=${page}&limit=${limit}`, {}, 3000);
+      const response = await fetchWithTimeout(`${API_URL}?page=${page}&limit=${limit}`, {}, 3000);
 
-        if (!response.ok) throw new Error('Failed to fetch buses');
-        const data = await response.json();
+      if (!response.ok) throw new Error('Failed to fetch buses');
+      const data = await response.json();
 
-        // Backend now returns { buses, total, page, pages }
-        const busesList = Array.isArray(data) ? data : (data?.buses || []);
+      // Backend now returns { buses, total, page, pages }
+      const busesList = Array.isArray(data) ? data : (data?.buses || []);
 
-        const mappedData = busesList.map((bus: any) => ({
-          ...bus,
-          id: bus._id ? String(bus._id) : (bus.id || "")
-        })) as Bus[];
+      const mappedData = (busesList as Bus[]).map((bus) => ({
+        ...bus,
+        id: bus._id ? String(bus._id) : (bus.id || "")
+      }));
 
-        // Update cache ONLY for first page
-        if (page === 1) {
-          busCache = { data: mappedData, timestamp: now };
-          sessionStorage.setItem('bus_data_cache', JSON.stringify(busCache));
-        }
-
-        const endTime = performance.now();
-        console.log(`Fetch completed in ${(endTime - startTime).toFixed(2)}ms`);
-
-        if (mappedData.length === 0) throw new Error("No data from API, using mock");
-
-        return mappedData;
-      } catch (err) {
-        throw err;
+      // Update cache ONLY for first page
+      if (page === 1) {
+        busCache = { data: mappedData, timestamp: now };
+        sessionStorage.setItem('bus_data_cache', JSON.stringify(busCache));
       }
+
+      const endTime = performance.now();
+      console.log(`Fetch completed in ${(endTime - startTime).toFixed(2)}ms`);
+
+      if (mappedData.length === 0) throw new Error("No data from API, using mock");
+
+      return mappedData;
     } catch (error) {
       console.warn("API fetch failed or timed out, using fallback mock data:", error);
       // Fallback to MOCK DATA

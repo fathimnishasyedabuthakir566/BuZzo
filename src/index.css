@@ -55,7 +55,11 @@
     --shadow-sm: 0 1px 2px 0 hsla(222, 47%, 11%, 0.05);
     --shadow-md: 0 4px 6px -1px hsla(222, 47%, 11%, 0.1), 0 2px 4px -2px hsla(222, 47%, 11%, 0.1);
     --shadow-lg: 0 10px 15px -3px hsla(222, 47%, 11%, 0.1), 0 4px 6px -4px hsla(222, 47%, 11%, 0.1);
+    --shadow-soft: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     --shadow-glow: 0 0 40px hsla(175, 80%, 35%, 0.3);
+
+    --gradient-buzzo: linear-gradient(135deg, #0f172a 0%, #0d9488 100%);
+    --gradient-buzzo-light: linear-gradient(135deg, #1e293b 0%, #14b8a6 100%);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -419,4 +423,49 @@
 .dark .glass-bottom-sheet {
   background: rgba(15, 23, 42, 0.85) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-scroll {
+  animation: scroll 40s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Floating Label Styles */
+.floating-label-input:focus-within label,
+.floating-label-input input:not(:placeholder-shown) + label {
+  transform: translateY(-1.5rem) scale(0.85);
+  color: hsl(var(--accent));
+  background-color: white;
+  padding: 0 0.25rem;
+}
+
+.floating-label-input label {
+  transition: all 0.2s ease-out;
+  pointer-events: none;
+}
+
+.gradient-btn-buzzo {
+  background: var(--gradient-buzzo);
+  transition: all 0.3s ease;
+}
+
+.gradient-btn-buzzo:hover {
+  background: var(--gradient-buzzo-light);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(13, 148, 136, 0.3);
 }

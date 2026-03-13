@@ -38,6 +38,30 @@ export interface UserActivity {
   loginHistory?: Array<{ ip: string; device: string; timestamp: string }>;
 }
 
+interface BackendUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  city?: string;
+  profilePhoto?: string;
+  assignedBus?: string;
+  createdAt?: string;
+}
+
+interface BackendUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  city?: string;
+  profilePhoto?: string;
+  assignedBus?: string;
+  createdAt?: string;
+}
+
 export const authService = {
   // ...
   // Login
@@ -51,14 +75,15 @@ export const authService = {
         body: JSON.stringify(credentials),
       });
 
-      const data = await response.json();
+      const data = await response.json() as BackendUser;
 
       if (!response.ok) {
-        return { success: false, error: data.message || 'Login failed' };
+        return { success: false, error: (data as any).message || 'Login failed' };
       }
 
       // Map backend user to frontend user
       const user: User = {
+        _id: data._id,
         id: data._id,
         name: data.name,
         email: data.email,
@@ -77,6 +102,48 @@ export const authService = {
       return { success: true, user };
     } catch (error) {
       return { success: false, error: 'Network error. Is the backend running?' };
+    }
+  },
+
+  // Google Login
+  async googleLogin(credential: string, role: UserRole): Promise<AuthResponse> {
+    try {
+      const response = await fetch('/api/users/google-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: credential, role }),
+      });
+
+      const data = await response.json() as BackendUser;
+
+      if (!response.ok) {
+        return { success: false, error: (data as any).message || 'Google login failed' };
+      }
+
+      // Map backend user to frontend user
+      const user: User = {
+        _id: data._id,
+        id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        phone: data.phone,
+        city: data.city,
+        profilePhoto: data.profilePhoto,
+        assignedBus: data.assignedBus,
+        createdAt: data.createdAt || new Date().toISOString(),
+      };
+
+      // Store in localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(user));
+      window.dispatchEvent(new Event('user-updated'));
+
+      return { success: true, user };
+    } catch (error) {
+      console.error("Google login error:", error);
+      return { success: false, error: 'Network error during Google sign in.' };
     }
   },
 

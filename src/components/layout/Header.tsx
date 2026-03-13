@@ -1,17 +1,23 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bus, Menu, X, MapPin, User as UserIcon, LogIn, LayoutDashboard } from "lucide-react";
+import { Bus, Menu, X, MapPin, User as UserIcon, LogIn, LayoutDashboard, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
-// Theme import removed
+import { useTranslation } from "react-i18next";
 import type { User } from "@/types";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  // Theme hook removed
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const changeLanguage = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value;
+    i18n.changeLanguage(newLang);
+    localStorage.setItem("i18nextLng", newLang);
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -27,9 +33,9 @@ const Header = () => {
   }, [location.pathname]);
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/buses", label: "Track Buses" },
-    { href: "/about", label: "About" },
+    { href: "/", label: t("home") },
+    { href: "/buses", label: t("track_bus") },
+    { href: "/about", label: t("about") },
   ];
 
   const getDashboardPath = () => {
@@ -81,16 +87,29 @@ const Header = () => {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Theme toggle removed */}
+            <div className="flex items-center gap-2 mr-4 bg-secondary/50 px-3 py-1.5 rounded-full border border-border">
+              <Globe className="w-4 h-4 text-muted-foreground" />
+              <select 
+                title="Select language"
+                className="bg-transparent text-sm font-medium outline-none cursor-pointer text-foreground"
+                value={i18n.language}
+                onChange={changeLanguage}
+              >
+                <option value="en">English</option>
+                <option value="ta">தமிழ்</option>
+                <option value="hi">हिंदी</option>
+              </select>
+            </div>
 
             {user ? (
               <>
                 <Link to={getDashboardPath()}>
-                  <Button variant="ghost" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="hidden sm:flex gap-2 mr-2">
                     <LayoutDashboard className="w-4 h-4" />
                     Dashboard
                   </Button>
                 </Link>
+
                 <Link to={getProfilePath()}>
                   <Button variant="accent" size="sm" className="rounded-full w-10 h-10 p-0 overflow-hidden border-2 border-primary/20">
                     {user.profilePhoto ? (
@@ -110,12 +129,12 @@ const Header = () => {
                 <Link to="/auth">
                   <Button variant="ghost" size="sm">
                     <LogIn className="w-4 h-4" />
-                    Login
+                    {t("signin")}
                   </Button>
                 </Link>
                 <Link to="/auth?mode=register">
                   <Button variant="accent" size="sm">
-                    Get Started
+                    {t("get_started")}
                   </Button>
                 </Link>
               </>
@@ -155,12 +174,14 @@ const Header = () => {
               <div className="flex flex-col gap-2 mt-2 px-4">
                 {user ? (
                   <>
+
                     <Link to={getDashboardPath()} className="flex-1" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="outline" size="sm" className="w-full gap-2 font-semibold">
                         <LayoutDashboard className="w-4 h-4" />
-                        Go to Dashboard
+                        Dashboard
                       </Button>
                     </Link>
+
                     <Link to={getProfilePath()} className="flex-1" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="accent" size="sm" className="w-full gap-2 font-semibold">
                         <UserIcon className="w-4 h-4" />

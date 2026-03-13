@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Layout } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,19 +22,35 @@ const BusDirectory = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedType, setSelectedType] = useState<string>("all");
     const [selectedDestination, setSelectedDestination] = useState<string>("all");
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
     useEffect(() => {
-        const fetchBuses = async () => {
-            setLoading(true);
-            try {
-                const data = await busService.getAllBuses();
-                setBuses(data);
-            } catch (error) {
-                console.error("Failed to fetch buses:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserLocation({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => console.error("Error getting location:", error)
+            );
+        }
+    }, []);
+
+    const fetchBuses = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await busService.getAllBuses();
+            setBuses(data);
+        } catch (error) {
+            console.error("Failed to fetch buses:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
         fetchBuses();
 
         socketService.connect();
@@ -44,7 +60,7 @@ const BusDirectory = () => {
                     ? {
                         ...bus,
                         location: { lat: data.lat, lng: data.lng, lastUpdated: new Date().toISOString() },
-                        status: (data.status as any) || bus.status,
+                        status: (data.status as Bus['status']) || bus.status,
                         isActive: data.isActive !== undefined ? data.isActive : true
                     }
                     : bus
@@ -54,7 +70,7 @@ const BusDirectory = () => {
         return () => {
             socketService.unsubscribeFromLocation();
         };
-    }, []);
+    }, [fetchBuses]);
 
     const destinations = useMemo(() => {
         const dests = new Set(buses.map(b => b.routeTo));
@@ -160,7 +176,7 @@ const BusDirectory = () => {
                             {filteredBuses.length > 0 ? (
                                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {filteredBuses.map((bus) => (
-                                        <BusEntryCard key={bus.id} bus={bus} />
+                                        <BusEntryCard key={bus.id} bus={bus} userLocation={userLocation} />
                                     ))}
                                 </div>
                             ) : (

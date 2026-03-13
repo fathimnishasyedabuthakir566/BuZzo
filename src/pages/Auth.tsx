@@ -23,16 +23,8 @@ const Auth = () => {
     if (roleParam) setRole(roleParam);
   }, [searchParams]);
 
-  const handleSubmit = async (data: {
-    name?: string;
-    email: string;
-    password: string;
-    confirmPassword?: string;
-    phone?: string;
-    city?: string;
-  }) => {
+  const handleSubmit = async (data: Record<string, string>) => {
     setIsLoading(true);
-
     try {
       if (mode === 'login') {
         const response = await authService.login({
@@ -43,18 +35,12 @@ const Auth = () => {
 
         if (response.success) {
           toast.success("Login successful!");
-          if (response.user?.role.toLowerCase() === 'admin') {
-            navigate('/admin');
-          } else if (response.user?.role.toLowerCase() === 'driver') {
-            navigate('/driver');
-          } else {
-            navigate('/dashboard');
-          }
+          const lowerRole = response.user?.role?.toLowerCase() || 'user';
+          navigate(lowerRole === 'admin' ? '/admin' : lowerRole === 'driver' ? '/driver' : '/');
         } else {
           toast.error(response.error || "Login failed");
         }
       } else {
-        // Register
         if (data.password !== data.confirmPassword) {
           toast.error("Passwords do not match");
           setIsLoading(false);
@@ -72,13 +58,8 @@ const Auth = () => {
 
         if (response.success) {
           toast.success("Account created successfully!");
-          if (response.user?.role.toLowerCase() === 'admin') {
-            navigate('/admin');
-          } else if (response.user?.role.toLowerCase() === 'driver') {
-            navigate('/driver');
-          } else {
-            navigate('/dashboard');
-          }
+          const lowerRole = response.user?.role?.toLowerCase() || 'user';
+          navigate(lowerRole === 'admin' ? '/admin' : lowerRole === 'driver' ? '/driver' : '/');
         } else {
           toast.error(response.error || "Registration failed");
         }
@@ -92,48 +73,49 @@ const Auth = () => {
   };
 
   return (
-    <Layout showFooter={false}>
-      <div className="min-h-screen flex items-center justify-center py-12 px-4">
-        {/* Background */}
-        <div className="fixed inset-0 bg-gradient-hero opacity-5" />
-        <div className="fixed top-1/4 -left-32 w-96 h-96 bg-accent/20 rounded-full blur-3xl" />
-        <div className="fixed bottom-1/4 -right-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
+    <div className="min-h-screen relative flex flex-col items-center justify-center p-6 sm:p-12 overflow-hidden bg-slate-50 font-sans">
+      {/* Dynamic Background Blobs */}
+      <div className="absolute top-0 right-0 w-[50rem] h-[50rem] bg-teal-500/10 rounded-full blur-[120px] -mr-64 -mt-64 animate-pulse-slow" />
+      <div className="absolute bottom-0 left-0 w-[40rem] h-[40rem] bg-slate-900/5 rounded-full blur-[100px] -ml-48 -mb-48" />
 
-        <div className="relative z-10 w-full max-w-md">
-          {/* Logo */}
-          <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-hero flex items-center justify-center shadow-lg">
-              <Bus className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-foreground">BusTrack</span>
-              <span className="text-xs text-muted-foreground block -mt-1">Tirunelveli</span>
-            </div>
-          </Link>
-
-          {/* Auth Card */}
-          <div className="glass-card rounded-2xl p-8 shadow-xl animate-scale-in">
-            <RoleSelector role={role} onRoleChange={setRole} />
-            <AuthForm
-              mode={mode}
-              role={role}
-              onSubmit={handleSubmit}
-              onModeChange={setMode}
-              isLoading={isLoading}
-            />
-          </div>
-
-          {/* Additional Info for Operators */}
-          {role === "admin" && (
-            <div className="mt-6 text-center text-sm text-muted-foreground animate-fade-in">
-              <p>
-                Bus operators can manage their buses, update locations, and set availability.
-              </p>
-            </div>
-          )}
+      {/* Modern Header / Brand */}
+      <div className="relative z-20 flex flex-col items-center mb-10">
+        <div className="w-20 h-20 rounded-3xl gradient-btn-buzzo flex items-center justify-center shadow-2xl mb-6 transform hover:rotate-6 transition-transform cursor-pointer">
+          <Bus className="w-10 h-10 text-white" />
         </div>
+        <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-1">
+          BUZZO <span className="text-teal-600 italic">TRANSIT</span>
+        </h1>
+        <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-[10px] mt-2">
+          Real-Time Tracking System
+        </p>
       </div>
-    </Layout>
+
+      {/* Auth Card */}
+      <div className="relative z-20 w-full max-w-md bg-white rounded-[3rem] p-8 sm:p-10 shadow-soft border border-slate-100 animate-scale-in">
+        <RoleSelector role={role} onRoleChange={setRole} />
+        
+        <AuthForm
+          mode={mode}
+          role={role}
+          onSubmit={handleSubmit}
+          onModeChange={setMode}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Decoration / Illustration Placeholder */}
+      <div className="absolute bottom-10 opacity-5 pointer-events-none hidden lg:block">
+        <Bus className="w-64 h-64 text-slate-900 -rotate-12" />
+      </div>
+
+      {/* Footer Text */}
+      <div className="relative z-20 mt-10 text-center">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+          Powered by Buzzo Engine v2.0 • Tirunelveli Division
+        </p>
+      </div>
+    </div>
   );
 };
 

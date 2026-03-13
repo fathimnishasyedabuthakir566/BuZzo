@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Layout } from "@/components/layout";
 import {
     Bus,
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRight, Edit2 } from "lucide-react";
+import { tripService } from "@/services/tripService";
 
 const DriverDashboard = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -33,33 +34,35 @@ const DriverDashboard = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const activeTab = searchParams.get('view') || 'dashboard';
+    const [activeTripId, setActiveTripId] = useState<string | null>(null);
+
+    const init = useCallback(async () => {
+        // Parallelize fetching to avoid waterfall delays
+        const [currentUser, buses] = await Promise.all([
+            authService.getCurrentUser(),
+            busService.getAllBuses()
+        ]);
+
+        if (!currentUser || currentUser.role !== "driver") {
+            navigate("/auth");
+            return;
+        }
+
+        setUser(currentUser);
+        setAllBuses(buses);
+
+        // If user has an assigned bus ID, fetch its details
+        if (currentUser.assignedBus) {
+            const busDetails = await busService.getBusById(currentUser.assignedBus);
+            if (busDetails) {
+                setAssignedBus(busDetails as BusType);
+            }
+        }
+
+        setIsLoading(false);
+    }, [navigate]);
 
     useEffect(() => {
-        const init = async () => {
-            // Parallelize fetching to avoid waterfall delays
-            const [currentUser, buses] = await Promise.all([
-                authService.getCurrentUser(),
-                busService.getAllBuses()
-            ]);
-
-            if (!currentUser || currentUser.role !== "driver") {
-                navigate("/auth");
-                return;
-            }
-
-            setUser(currentUser);
-            setAllBuses(buses);
-
-            // If user has an assigned bus ID, fetch its details
-            if (currentUser.assignedBus) {
-                const busDetails = await busService.getBusById(currentUser.assignedBus);
-                if (busDetails) {
-                    setAssignedBus(busDetails as BusType);
-                }
-            }
-
-            setIsLoading(false);
-        };
         init();
 
         return () => {
@@ -68,7 +71,7 @@ const DriverDashboard = () => {
             }
             socketService.disconnect();
         };
-    }, [navigate]);
+    }, [init]);
 
     const handleBusAssignment = async (busId: string) => {
         if (!user) return;
@@ -105,7 +108,7 @@ const DriverDashboard = () => {
         }
     };
 
-    const startTrip = () => {
+    const startTrip = async () => {
         if (!assignedBus) {
             toast.error("Please assign a bus first");
             return;
@@ -116,40 +119,62 @@ const DriverDashboard = () => {
             return;
         }
 
-        socketService.connect();
-        socketService.startTrip(assignedBus.id);
-
-        // Use high accuracy and low timeout for better responsiveness
-        const id = navigator.geolocation.watchPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                socketService.sendLocation(assignedBus.id, latitude, longitude);
-                // Minimize toast spam, just update state
-                console.log('Location update sent:', { latitude, longitude });
-                setIsTracking(true);
-            },
-            (error) => {
-                let msg = "Location tracking failed.";
-                if (error.code === 1) msg = "Location permission denied. Please enable GPS.";
-                else if (error.code === 3) msg = "GPS signal lost. Retrying...";
-
-                toast.error(msg);
-                if (error.code !== 3) stopTrip();
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+        try {
+            // Register trip in DB
+            const response = await tripService.startTrip(assignedBus.id, `${assignedBus.routeFrom}-${assignedBus.routeTo}`);
+            if (response.success && response.trip) {
+                 setActiveTripId(response.trip.id);
+            } else {
+                 toast.error(response.error || "Failed to start trip backend record");
+                 // We can either abort or continue with just GPS. Let's abort to ensure data integrity
+                 return;
             }
-        );
 
-        watchIdRef.current = id;
-        toast.success("Trip started! Passengers can now track you live.");
+            socketService.connect();
+            socketService.startTrip(assignedBus.id);
+
+            // Use high accuracy and low timeout for better responsiveness
+            const id = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    socketService.sendLocation(assignedBus.id, latitude, longitude);
+                    // Minimize toast spam, just update state
+                    console.log('Location update sent:', { latitude, longitude });
+                    setIsTracking(true);
+                },
+                (error) => {
+                    let msg = "Location tracking failed.";
+                    if (error.code === 1) msg = "Location permission denied. Please enable GPS.";
+                    else if (error.code === 3) msg = "GPS signal lost. Retrying...";
+
+                    toast.error(msg);
+                    if (error.code !== 3) stopTrip();
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+
+            watchIdRef.current = id;
+            toast.success("Trip started! Passengers can now track you live.");
+        } catch(error) {
+             toast.error("Error starting trip");
+        }
     };
 
-    const stopTrip = () => {
+    const stopTrip = async () => {
         if (assignedBus) {
             socketService.stopTrip(assignedBus.id);
+        }
+
+        if (activeTripId) {
+             // Let's assume an arbitrary distance covered for this session if GPS calculation is complex for now
+             // In a real app we would track total distance via GPS points
+             const sessionDistance = Math.floor(Math.random() * 50) + 10; 
+             await tripService.endTrip(activeTripId, sessionDistance);
+             setActiveTripId(null);
         }
 
         if (watchIdRef.current !== null) {

@@ -30,6 +30,9 @@ const io = new Server(server, {
     }
 });
 
+// Set global.io for controllers to emit events
+global.io = io;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -145,6 +148,7 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/buses', require('./routes/busRoutes')); // Add Bus Routes
+app.use('/api/trips', require('./routes/tripRoutes')); // Add Trip Routes
 
 // Error Handler
 app.use(errorHandler);

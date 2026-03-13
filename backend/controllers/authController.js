@@ -1,6 +1,9 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -104,6 +107,83 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Authenticate with Google
+// @route   POST /api/users/google-login
+// @access  Public
+const googleLogin = asyncHandler(async (req, res) => {
+    const { token, role } = req.body;
+
+    if (!token) {
+        res.status(400);
+        throw new Error('Google token is missing');
+    }
+
+    try {
+        // Verify the token with Google
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { sub: googleId, email, name, picture } = payload;
+
+        // Check if user already exists
+        let user = await User.findOne({ email });
+
+        if (user) {
+            // User exists: update googleId if not present, and handle login
+            if (!user.googleId) {
+                user.googleId = googleId;
+                if (!user.profilePhoto) user.profilePhoto = picture;
+                await user.save();
+            }
+
+            if (user.isBlocked) {
+                res.status(403);
+                throw new Error('This account has been blocked. Please contact support.');
+            }
+
+            console.log('Google Login successful for existing user:', email);
+        } else {
+            // User does not exist: Create a new user account
+            console.log('Creating new user from Google Login:', email);
+            user = await User.create({
+                name,
+                email,
+                googleId,
+                profilePhoto: picture,
+                role: role || 'USER', // Ensure role fallback
+                // Phone is not provided by Google, will be skipped or asked later
+            });
+        }
+
+        // Update login history
+        user.lastActive = new Date();
+        user.loginHistory.push({
+            ip: req.ip,
+            device: req.headers['user-agent'] || 'Google Auth'
+        });
+        await user.save();
+
+        res.json({
+            _id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            city: user.city,
+            profilePhoto: user.profilePhoto,
+            token: generateToken(user._id),
+        });
+
+    } catch (error) {
+        console.error('Google token verification failed:', error);
+        res.status(401);
+        throw new Error('Google authentication failed - invalid token');
+    }
+});
+
 // @desc    Get user activity (Admin)
 // @route   GET /api/users/activity
 // @access  Private (Admin)
@@ -157,6 +237,13 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         user.city = req.body.city || user.city;
         user.profilePhoto = req.body.profilePhoto || user.profilePhoto;
         user.assignedBus = req.body.assignedBus || user.assignedBus;
+
+        // Role specific profile updates
+        if (req.body.licenseNumber) user.licenseNumber = req.body.licenseNumber;
+        if (req.body.emergencyContact) user.emergencyContact = req.body.emergencyContact;
+        if (req.body.availabilityStatus) user.availabilityStatus = req.body.availabilityStatus;
+        if (req.body.department) user.department = req.body.department;
+        if (req.body.favoriteRoutes) user.favoriteRoutes = req.body.favoriteRoutes;
 
         if (req.body.password) {
             user.password = req.body.password;
@@ -219,6 +306,7 @@ const getMe = asyncHandler(async (req, res) => {
 module.exports = {
     registerUser,
     loginUser,
+    googleLogin,
     getMe,
     updateUserProfile,
     uploadProfileImage,

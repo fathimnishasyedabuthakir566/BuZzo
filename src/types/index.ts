@@ -12,6 +12,7 @@ export interface BusTiming {
 }
 
 export interface Bus {
+  _id?: string;
   id: string;
   name: string;
   routeFrom: string;
@@ -38,6 +39,10 @@ export interface Bus {
   capacity: number;
   ac: boolean;
   isActive: boolean;
+  speed?: number;
+  availableSeats?: number;
+  driverRating?: number;
+  driverStatus?: "Driving" | "Break" | "Trip Completed";
   busType?: "Town Bus" | "Mofussil" | "Express" | "Deluxe" | "AC" | "Ultra Deluxe" | "SFS";
   serviceType?: "Ordinary" | "Express" | "Special" | "1to1" | "EAC" | "BPR";
   depot?: string;
@@ -63,6 +68,7 @@ export interface BusDetails extends Bus {
 export type UserRole = "user" | "admin" | "driver";
 
 export interface User {
+  _id?: string;
   id: string;
   name: string;
   email: string;
@@ -73,6 +79,19 @@ export interface User {
   assignedBus?: string;
   isBlocked?: boolean;
   createdAt: string;
+
+  // New RBAC Fields
+  licenseNumber?: string;
+  assignedRoute?: string;
+  totalTrips?: number;
+  totalDistance?: number;
+  drivingHours?: number;
+  lastTripTime?: string;
+  emergencyContact?: string;
+  availabilityStatus?: 'Available' | 'On Trip' | 'Offline';
+  
+  favoriteRoutes?: string[];
+  department?: string;
 }
 
 export interface AuthState {
@@ -102,4 +121,5 @@ export interface BusFilters {
   route: string;
   status: string;
   searchQuery: string;
+  platform?: number | 'all';
 }

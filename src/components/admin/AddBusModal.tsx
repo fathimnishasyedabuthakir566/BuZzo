@@ -7,7 +7,7 @@ import { busSchema, type BusFormData } from "@/lib/validations/bus";
 interface AddBusModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: BusFormData) => Promise<void>;
 }
 
 const AddBusModal = ({ isOpen, onClose, onSubmit }: AddBusModalProps) => {

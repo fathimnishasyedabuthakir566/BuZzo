@@ -1,15 +1,81 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Layout } from "@/components/layout";
-import { Bus, Search, RefreshCw, User as UserIcon, Plus, Clock } from "lucide-react";
+import { Bus, Search, RefreshCw, User as UserIcon, Plus, Clock, Navigation } from "lucide-react";
 import { busService } from "@/services/busService";
 import { authService } from "@/services/authService";
 import type { Bus as BusType, User } from "@/types";
 import { BusCard } from "@/components/bus";
 import { SkeletonCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import AllBusesMap from "@/components/map/AllBusesMap";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
+import { useNavigate as routerNavigate } from "react-router-dom";
+
+const StatusLegend = ({ t }: { t: (key: string) => string }) => (
+    <div className="flex flex-wrap items-center gap-4 px-6 py-3 bg-white/50 backdrop-blur-sm rounded-2xl border border-slate-100 mb-8 shadow-sm">
+        <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("active")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("on_route")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("delayed")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("inactive")}</span>
+        </div>
+    </div>
+);
+
+const MetricCard = ({ label, value, color, icon: Icon }: { label: string, value: number, color: string, icon: React.ElementType }) => (
+    <div className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-lg transition-all">
+        <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</p>
+            <p className="text-3xl font-black text-slate-800 tracking-tighter">{value}</p>
+        </div>
+        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", color)}>
+            <Icon className="w-7 h-7" />
+        </div>
+    </div>
+);
+
+const QuickActionCard = ({ title, desc, icon: Icon, color, onClick }: { title: string, desc: string, icon: React.ElementType, color: string, onClick: () => void }) => (
+    <button
+        onClick={onClick}
+        className="group relative bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left overflow-hidden w-full"
+    >
+        <div className={cn("inline-flex w-12 h-12 rounded-2xl items-center justify-center mb-4 transition-transform group-hover:scale-110", color)}>
+            <Icon className="w-6 h-6" />
+        </div>
+        <h4 className="text-lg font-black text-slate-800 mb-1">{title}</h4>
+        <p className="text-sm text-slate-500 font-medium leading-relaxed">{desc}</p>
+        <div className="absolute -bottom-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Icon className="w-24 h-24" />
+        </div>
+    </button>
+);
+
+const AnnouncementTicker = () => (
+    <div className="bg-slate-900 overflow-hidden py-3 relative z-20">
+        <div className="flex animate-scroll whitespace-nowrap gap-12">
+            {[1, 2, 3].map(i => (
+                <div key={i} className="flex items-center gap-4 text-white text-[10px] font-black uppercase tracking-[0.3em]">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    Terminal Update: Platform 3 is undergoing maintenance. All Thoothukudi services shifted to Platform 4
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Safety: Please keep your belongings safe and monitor real-time ETA via Buzzo
+                </div>
+            ))}
+        </div>
+    </div>
+);
 
 const PassengerDashboard = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -23,7 +89,8 @@ const PassengerDashboard = () => {
     const [routes, setRoutes] = useState<string[]>([]);
     const [selectedRoute, setSelectedRoute] = useState<string>("all");
     const [selectedStatus, setSelectedStatus] = useState<string>("all");
-    const navigate = useNavigate();
+    const navigate = routerNavigate();
+    const { t } = useTranslation();
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -33,7 +100,7 @@ const PassengerDashboard = () => {
         return () => clearInterval(timer);
     }, []);
 
-    const fetchDashboardData = async (pageNum = 1, append = false) => {
+    const fetchDashboardData = useCallback(async (pageNum = 1, append = false) => {
         if (!append) setIsLoading(true);
 
         try {
@@ -71,12 +138,11 @@ const PassengerDashboard = () => {
             console.error("Dashboard load failed:", error);
             setIsLoading(false);
         }
-    };
+    }, [user, navigate]);
 
     useEffect(() => {
         fetchDashboardData(1, false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [navigate]);
+    }, [fetchDashboardData]);
 
     const handleLoadMore = () => {
         const nextPage = page + 1;
@@ -94,22 +160,51 @@ const PassengerDashboard = () => {
 
     const currentFormattedTime = formatTime(currentTime);
 
-    const filteredBuses = buses.filter((bus) => {
+    const filteredBuses = (Array.isArray(buses) ? buses : []).filter((bus) => {
+        if (!bus) return false;
+        
+        const name = bus.name || "";
+        const busNumber = bus.busNumber || "";
+        const routeFrom = bus.routeFrom || "";
+        const routeTo = bus.routeTo || "";
+        const query = (searchQuery || "").toLowerCase();
+
         const matchesSearch =
-            bus.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            bus.busNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            bus.routeFrom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            bus.routeTo.toLowerCase().includes(searchQuery.toLowerCase());
+            name.toLowerCase().includes(query) ||
+            busNumber.toLowerCase().includes(query) ||
+            routeFrom.toLowerCase().includes(query) ||
+            routeTo.toLowerCase().includes(query);
 
         const matchesPlatform = selectedPlatform === 'all' || bus.platformNumber === selectedPlatform;
-        const matchesRoute = selectedRoute === 'all' || `${bus.routeFrom} - ${bus.routeTo}` === selectedRoute;
-        const matchesStatus = selectedStatus === 'all' || bus.status === selectedStatus;
+        const matchesRoute = selectedRoute === 'all' || `${routeFrom} - ${routeTo}` === selectedRoute;
+        const matchesStatus = (selectedStatus === 'all' || bus.status === selectedStatus) && (bus.status !== 'completed'); // Default hide completed in dashboard
 
-        const scheduledTime = Array.isArray(bus.scheduledTime) ? bus.scheduledTime[0] : bus.scheduledTime;
-        const isUpcoming = isAfter(scheduledTime, currentFormattedTime);
-
-        return matchesSearch && matchesPlatform && matchesRoute && matchesStatus && isUpcoming;
+        return matchesSearch && matchesPlatform && matchesRoute && matchesStatus;
     });
+
+    const metrics = useMemo(() => {
+        const safeBuses = Array.isArray(buses) ? buses : [];
+        return {
+            total: safeBuses.length,
+            active: safeBuses.filter(b => b?.status === 'active' || b?.isActive).length,
+            onRoute: safeBuses.filter(b => b?.status === 'on-route').length,
+            delayed: safeBuses.filter(b => b?.status === 'delayed').length,
+            inactive: safeBuses.filter(b => b?.status === 'inactive').length
+        };
+    }, [buses]);
+
+    const busesByPlatform = useMemo(() => {
+        const groups: Record<number, BusType[]> = {};
+        const safeFiltered = Array.isArray(filteredBuses) ? filteredBuses : [];
+        
+        safeFiltered.forEach(bus => {
+            if (!bus) return;
+            const p = bus.platformNumber || 1;
+            if (!groups[p]) groups[p] = [];
+            groups[p].push(bus);
+        });
+        return groups;
+    }, [filteredBuses]);
 
     if (!user) return (
         <Layout>
@@ -126,7 +221,72 @@ const PassengerDashboard = () => {
 
     return (
         <Layout>
+            <AnnouncementTicker />
             <div className="container mx-auto px-4 py-8">
+                {/* Welcome Section */}
+                <div className="mb-10 flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                                {format(currentTime, 'EEEE, d MMMM')}
+                            </span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                            <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> 84°F Clear
+                            </span>
+                        </div>
+                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
+                            {t("good_morning")}, <span className="text-primary italic">{user.name?.split(' ')[0]}</span> 👋
+                        </h2>
+                        <p className="text-slate-500 font-medium max-w-lg mt-1">
+                            {t("terminal_dashboard_ready", { count: metrics.active })}
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="hero"
+                            size="lg"
+                            className="rounded-2xl h-14 px-8 font-black shadow-primary/20 shadow-xl"
+                            onClick={() => navigate('/buses')}
+                        >
+                            <Search className="w-5 h-5 mr-3" />
+                            {t("quick_track")}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Quick Service Hub */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <QuickActionCard
+                        title={t("live_radar")}
+                        desc="View all buses in your vicinity on a live interactive map."
+                        icon={Navigation}
+                        color="bg-primary/10 text-primary"
+                        onClick={() => navigate('/buses')}
+                    />
+                    <QuickActionCard
+                        title={t("saved_routes")}
+                        desc="Quick access to your most frequented daily commute paths."
+                        icon={Plus}
+                        color="bg-emerald-50 text-emerald-600"
+                        onClick={() => {}}
+                    />
+                    <QuickActionCard
+                        title={t("alerts_hub")}
+                        desc="Manage your proximity notifications and system updates."
+                        icon={Clock}
+                        color="bg-amber-50 text-amber-600"
+                        onClick={() => {}}
+                    />
+                    <QuickActionCard
+                        title={t("terminal_support")}
+                        desc="Live assistance for ticketing and platform inquiries."
+                        icon={UserIcon}
+                        color="bg-slate-50 text-slate-600"
+                        onClick={() => {}}
+                    />
+                </div>
                 {/* Modern Terminal Header */}
                 <div className="relative overflow-hidden glass-card rounded-3xl p-8 mb-10 bg-gradient-to-br from-primary/10 via-background to-accent/5 border-primary/20 shadow-2xl">
                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
@@ -136,15 +296,21 @@ const PassengerDashboard = () => {
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-10">
                         <div>
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-4 border border-primary/20">
-                                <Plus className="w-3 h-3" /> Live Departures
+                                <Plus className="w-3 h-3" /> {t("live_departures")}
                             </div>
                             <h1 className="text-4xl lg:text-5xl font-black mb-3 tracking-tight">
-                                Tirunelveli <span className="text-primary italic">Terminal</span>
+                                Tirunelveli <span className="text-primary italic">{t("terminal")}</span>
                             </h1>
-                            <p className="text-muted-foreground text-lg flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-accent animate-pulse" />
-                                Station Time: <span className="font-mono text-foreground font-bold">{currentFormattedTime}</span>
-                            </p>
+                            <div className="flex items-center gap-6">
+                                <p className="text-slate-500 text-sm font-black flex items-center gap-2 uppercase tracking-widest">
+                                    <Clock className="w-4 h-4 text-emerald-500 animate-pulse" />
+                                    {t("station_time")}: <span className="text-slate-900 ml-1">{format(currentTime, 'hh:mm AA')}</span>
+                                </p>
+                                <div className="h-4 w-px bg-slate-200" />
+                                <p className="text-slate-500 text-sm font-black uppercase tracking-widest">
+                                    {t("departures")}: <span className="text-slate-900 ml-1">{filteredBuses.length} Listed</span>
+                                </p>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -175,7 +341,7 @@ const PassengerDashboard = () => {
                             <input
                                 type="text"
                                 placeholder="Find your bus number or destination..."
-                                className="input-field pl-14 h-16 text-xl rounded-2xl bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner w-full transition-all"
+                                className="input-field pl-14 h-16 text-xl rounded-full bg-background/80 border-primary/10 hover:border-primary/30 focus:border-primary shadow-inner w-full transition-all"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -183,66 +349,69 @@ const PassengerDashboard = () => {
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative w-full md:w-64">
                                 <select
-                                    className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-semibold"
+                                    className="w-full h-16 px-6 pr-10 rounded-full bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-bold text-sm tracking-tight"
                                     value={selectedRoute}
                                     onChange={(e) => setSelectedRoute(e.target.value)}
                                 >
-                                    <option value="all">All Routes</option>
+                                    <option value="all">ALL ROUTES</option>
                                     {Array.isArray(routes) && routes.map(route => (
                                         <option key={route} value={route}>{route}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <Bus className="w-5 h-5 text-muted-foreground" />
-                                </div>
                             </div>
                             <div className="relative w-full md:w-48">
                                 <select
-                                    className="w-full h-16 px-4 pr-10 rounded-2xl bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-semibold capitalize"
+                                    className="w-full h-16 px-6 pr-10 rounded-full bg-background/80 border border-primary/10 focus:ring-2 focus:ring-primary appearance-none cursor-pointer font-bold text-sm tracking-tight uppercase"
                                     value={selectedStatus}
                                     onChange={(e) => setSelectedStatus(e.target.value)}
                                 >
-                                    <option value="all">Any Status</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="on-route">On Route</option>
-                                    <option value="delayed">Delayed</option>
+                                    <option value="all">ANY STATUS</option>
+                                    <option value="active">ACTIVE</option>
+                                    <option value="on-route">ON ROUTE</option>
+                                    <option value="delayed">DELAYED</option>
+                                    <option value="inactive">INACTIVE</option>
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <div className={`w-3 h-3 rounded-full ${selectedStatus === 'active' ? 'bg-green-500' : selectedStatus === 'on-route' ? 'bg-blue-500' : selectedStatus === 'delayed' ? 'bg-red-500' : 'bg-gray-500'}`} />
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Platform Selector */}
-                <div className="mb-10 overflow-x-auto pb-4 no-scrollbar">
-                    <div className="flex items-center gap-3 min-w-max">
+                {/* Dashboard Summary Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+                    <MetricCard label={t("live_services")} value={metrics.active} color="bg-emerald-50 text-emerald-600" icon={Bus} />
+                    <MetricCard label={t("on_route")} value={metrics.onRoute} color="bg-blue-50 text-blue-600" icon={Navigation} />
+                    <MetricCard label={t("delayed")} value={metrics.delayed} color="bg-rose-50 text-rose-600" icon={Clock} />
+                    <MetricCard label={t("total_fleets")} value={metrics.total} color="bg-slate-50 text-slate-600" icon={Search} />
+                </div>
+
+                {/* Platform Selector & Legend */}
+                <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-10">
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar w-full md:w-auto">
                         <Button
                             variant={selectedPlatform === 'all' ? "hero" : "outline"}
                             className={cn(
-                                "rounded-xl h-12 px-6 font-bold transition-all shadow-md",
+                                "rounded-xl h-12 px-6 font-black transition-all shadow-md uppercase tracking-tighter text-xs",
                                 selectedPlatform === 'all' ? "scale-105" : "hover:bg-primary/5 border-primary/10"
                             )}
                             onClick={() => setSelectedPlatform('all')}
                         >
-                            ALL PLATFORMS
+                            {t("all")}
                         </Button>
                         {[1, 2, 3, 4, 5, 6].map((p) => (
                             <Button
                                 key={p}
                                 variant={selectedPlatform === p ? "accent" : "outline"}
                                 className={cn(
-                                    "rounded-xl h-12 px-8 font-black transition-all shadow-md",
+                                    "rounded-xl h-12 px-8 font-black transition-all shadow-md text-xs",
                                     selectedPlatform === p ? "scale-105 bg-accent text-white" : "hover:bg-accent/5 border-accent/10 text-accent"
                                 )}
                                 onClick={() => setSelectedPlatform(p)}
                             >
-                                PLATFORM {p}
+                                {t("platform")} {p}
                             </Button>
                         ))}
                     </div>
+                    <StatusLegend t={t} />
                 </div>
 
                 {/* Content Layout: Map + Grid */}
@@ -252,7 +421,7 @@ const PassengerDashboard = () => {
                     <div className="w-full xl:w-1/3 xl:sticky xl:top-24 h-fit space-y-6">
                         <div className="glass-card p-2 rounded-2xl shadow-lg bg-card">
                             <h3 className="text-lg font-bold px-4 pt-3 flex items-center gap-2">
-                                <Bus className="w-5 h-5 text-accent" /> Live Map View
+                                <Bus className="w-5 h-5 text-accent" /> {t("live_map_view")}
                             </h3>
                             <AllBusesMap initialBuses={filteredBuses} />
                         </div>
@@ -267,9 +436,9 @@ const PassengerDashboard = () => {
                                     <Bus className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-black tracking-tight">Available Departures</h2>
+                                    <h2 className="text-2xl font-black tracking-tight">{t("available_departures")}</h2>
                                     <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">
-                                        {selectedPlatform === 'all' ? 'Across all platforms' : `Specifically from Platform ${selectedPlatform}`}
+                                        {selectedPlatform === 'all' ? t("across_all_platforms") : t("specifically_from_platform", { platform: selectedPlatform })}
                                     </p>
                                 </div>
                             </div>
@@ -283,7 +452,7 @@ const PassengerDashboard = () => {
                                 }}
                             >
                                 <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                                UPDATE LIST
+                                {t("update_list")}
                             </Button>
                         </div>
 
@@ -294,10 +463,22 @@ const PassengerDashboard = () => {
                                 ))}
                             </div>
                         ) : filteredBuses.length > 0 ? (
-                            <div className="space-y-10">
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    {filteredBuses.map((bus) => (
-                                        <BusCard key={bus.id} {...bus} />
+                            <div className="space-y-12">
+                                <div className="space-y-12">
+                                    {Object.entries(busesByPlatform).sort(([a], [b]) => Number(a) - Number(b)).map(([platform, platformBuses]) => (
+                                        <div key={platform} className="space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="px-5 py-2 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.3em]">
+                                                    {t("platform")} {platform}
+                                                </div>
+                                                <div className="h-px bg-slate-100 flex-1" />
+                                            </div>
+                                            <div className="grid md:grid-cols-2 gap-6">
+                                                {(Array.isArray(platformBuses) ? platformBuses : []).map((bus) => (
+                                                    <BusCard key={bus?.id || Math.random()} {...bus} />
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
 
@@ -315,7 +496,7 @@ const PassengerDashboard = () => {
                                             ) : (
                                                 <Plus className="w-5 h-5" />
                                             )}
-                                            Load More Buses
+                                            {t("load_more_buses")}
                                         </Button>
                                     </div>
                                 )}
@@ -323,8 +504,8 @@ const PassengerDashboard = () => {
                         ) : (
                             <div className="text-center py-20 glass-card rounded-2xl border-dashed border-2">
                                 <Bus className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-                                <h3 className="text-xl font-bold text-muted-foreground">No buses currently departing</h3>
-                                <p className="text-muted-foreground">All scheduled buses for this route may have already departed or no results match your filters.</p>
+                                <h3 className="text-xl font-bold text-muted-foreground">{t("no_buses_departing")}</h3>
+                                <p className="text-muted-foreground">{t("all_scheduled_buses_departed")}</p>
                             </div>
                         )}
                     </div>

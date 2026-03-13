@@ -1,5 +1,6 @@
 import { Users, Shield, Bus } from "lucide-react";
 import type { UserRole } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface RoleSelectorProps {
   role: UserRole;
@@ -7,41 +8,43 @@ interface RoleSelectorProps {
 }
 
 const RoleSelector = ({ role, onRoleChange }: RoleSelectorProps) => {
+  const roles = [
+    { id: "user", label: "Passenger", icon: Users },
+    { id: "driver", label: "Driver", icon: Bus },
+    { id: "admin", label: "Admin", icon: Shield },
+  ];
+
   return (
-    <div className="flex gap-2 p-1 bg-secondary rounded-xl mb-6 overflow-x-auto">
-      <button
-        type="button"
-        onClick={() => onRoleChange("user")}
-        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${role === "user"
-          ? "bg-card text-foreground shadow-md"
-          : "text-muted-foreground hover:text-foreground"
-          }`}
-      >
-        <Users className="w-4 h-4" />
-        Passenger
-      </button>
-      <button
-        type="button"
-        onClick={() => onRoleChange("driver")}
-        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${role === "driver"
-          ? "bg-card text-foreground shadow-md"
-          : "text-muted-foreground hover:text-foreground"
-          }`}
-      >
-        <Bus className="w-4 h-4" />
-        Bus Driver
-      </button>
-      <button
-        type="button"
-        onClick={() => onRoleChange("admin")}
-        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${role === "admin"
-          ? "bg-card text-foreground shadow-md"
-          : "text-muted-foreground hover:text-foreground"
-          }`}
-      >
-        <Shield className="w-4 h-4" />
-        Admin
-      </button>
+    <div className="relative bg-slate-100/50 p-1.5 rounded-[2rem] flex items-center mb-10 overflow-hidden border border-slate-200/50">
+      {/* Active Indicator Background */}
+      <div 
+        className={cn(
+          "absolute top-1.5 bottom-1.5 bg-white rounded-[1.75rem] shadow-sm transition-all duration-300 ease-out z-0",
+          role === "user" ? "left-1.5 w-[calc(33.33%-4px)]" : 
+          role === "driver" ? "left-[33.33%] w-[calc(33.33%-4px)]" : 
+          "left-[66.66%] w-[calc(33.33%-4px)]"
+        )}
+      />
+      
+      {roles.map((r) => {
+        const Icon = r.icon;
+        const isActive = role === r.id;
+        
+        return (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => onRoleChange(r.id as UserRole)}
+            className={cn(
+              "relative z-10 flex-1 flex flex-col items-center justify-center py-3 px-2 transition-all duration-300",
+              isActive ? "text-slate-900" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <Icon className={cn("w-5 h-5 mb-1 transition-transform duration-300", isActive && "scale-110")} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{r.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };
